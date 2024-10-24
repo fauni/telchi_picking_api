@@ -1,0 +1,27 @@
+*.vs
+# Compiled source files
+*.dll
+*.exe
+*.so
+*.dylib
+*.pdb
+
+# Folders
+bin/
+obj/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/

@@ -3,6 +3,7 @@ using Data.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +54,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<ExceptionMiddleware>();
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
@@ -61,3 +64,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+/*
+app.Run(async contexto =>
+{
+    await contexto.Response.WriteAsync("Estoy interceptando la tuberia");
+});
+*/

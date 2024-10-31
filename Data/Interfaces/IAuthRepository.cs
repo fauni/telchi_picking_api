@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Core.Entities.Login;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,7 @@ namespace Data.Interfaces
 {
     public interface IAuthRepository
     {
-        Task<bool> ValidateUserAsync(string username, string password);
+        Task<Usuario> ValidateUserAsync(string username, string password);
+        Task<SapAuthResponse> AuthenticateWithSapB1Async();
     }
 }

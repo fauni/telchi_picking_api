@@ -58,5 +58,45 @@ namespace Data.Implementation
                 return false;
             }
         }
+
+        public List<Usuario> ObtenerUsuarios()
+        {
+            var usuarios = new List<Usuario>();
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+                    string query = "SELECT Id, ApellidoPaterno, ApellidoMaterno, Nombres, Usuario, Email, EstaActivo FROM Usuarios";
+                    using (SqlCommand cmd = new SqlCommand(query, conn)) 
+                    {
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read()) 
+                            {
+                                var usuario = new Usuario
+                                {
+                                    Id = (int)reader["Id"],
+                                    ApellidoPaterno = reader["ApellidoPaterno2"].ToString(),
+                                    ApellidoMaterno = reader["ApellidoMaterno"].ToString(),
+                                    Nombres = reader["Nombres"].ToString(),
+                                    UsuarioNombre = reader["Usuario"].ToString(),
+                                    Email = reader["Email"].ToString(),
+                                    EstaActivo = (bool)reader["EstaActivo"]
+                                };
+                                usuarios.Add(usuario);
+
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Ocurrio un error al obtener los datos: " + ex.Message);
+            }
+
+            return usuarios;
+        }
     }
 }

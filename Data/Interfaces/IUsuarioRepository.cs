@@ -10,5 +10,6 @@ namespace Data.Interfaces
     public interface IUsuarioRepository
     {
         bool InsertarUsuario(Usuario usuario);
+        List<Usuario> ObtenerUsuarios();
     }
 }

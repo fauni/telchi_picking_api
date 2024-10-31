@@ -1,7 +1,9 @@
-﻿using Core.Entities.Login;
+﻿using Core.Entities;
+using Core.Entities.Login;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 
 namespace WebApi.Controllers.Login
 {
@@ -21,16 +23,45 @@ namespace WebApi.Controllers.Login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            var isValidUser = await _authRepository.ValidateUserAsync(model.Username, model.Password);
-            if (isValidUser)
+            var usuario = await _authRepository.ValidateUserAsync(model.Username, model.Password);
+
+            if (usuario != null)
             {
                 var token = _jwtTokenRepository.GenerateToken(model.Username);
-                return Ok(new
+
+                // Autenticación en SAP Business One
+                var sapSession = await _authRepository.AuthenticateWithSapB1Async();
+                if (sapSession == null)
                 {
-                    Token = token
+                    return StatusCode(500, new ApiResponse()
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccessful = false,
+                        ErrorMessages = new List<string>() {
+                        "Autenticación fallida en SAP B1"
+                    }
+                    });
+                }
+
+                return Ok(new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    IsSuccessful = true,
+                    Resultado = new
+                    {
+                        Token = token,
+                        Usuario = usuario,
+                        SapSessionId = sapSession.SessionId,
+                        SapSessionTimeout = sapSession.SessionTimeout
+                    }
                 });
             }
-            return Unauthorized("Invalid username or password");
+            return Unauthorized(new ApiResponse
+            {
+                StatusCode = HttpStatusCode.Unauthorized,
+                IsSuccessful = false,
+                ErrorMessages = new List<string> { "Usuario o contraseña inválido" }
+            });
         }
     }
 }

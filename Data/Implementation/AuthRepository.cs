@@ -18,7 +18,7 @@ namespace Data.Implementation
 
         public async Task<SapAuthResponse> AuthenticateWithSapB1Async()
         {
-            var sapAuthUrl = _configuration["SapCredentials:Url"];
+            var sapAuthUrl = _configuration["SapCredentials:Url"] + $"/Login";
             var credentials = new
             {
                 CompanyDB = _configuration["SapCredentials:CompanyDB"],

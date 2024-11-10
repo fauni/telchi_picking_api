@@ -1,12 +1,16 @@
+using BussinessLogic.Logic;
+using Core.Interfaces;
 using Data.Implementation;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using WebApi.AutoMapper;
 using WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 // Add services to the container.
 
 builder.Services.AddControllers();
@@ -15,6 +19,8 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IJwtTokenRepository, JwtTokenRepository>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 
 // Configurar autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

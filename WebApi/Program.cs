@@ -21,6 +21,8 @@ builder.Services.AddScoped<IJwtTokenRepository, JwtTokenRepository>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
+builder.Services.AddScoped<IDetalleDocumentoRepository, DetalleDocumentoRepository>();
 
 // Configurar autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

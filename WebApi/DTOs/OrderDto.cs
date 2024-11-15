@@ -1,4 +1,5 @@
-﻿using Core.Entities.Ventas;
+﻿using Core.Entities.Picking;
+using Core.Entities.Ventas;
 
 namespace WebApi.DTOs
 {
@@ -14,6 +15,8 @@ namespace WebApi.DTOs
         public double? DocTotal { get; set; }
         public string DocCurrency { get; set; }
         public string Comments { get; set; }
+
+        public Documento Documento { get; set; }
         public List<DocumentLineOrderDto> DocumentLines { get; set; }
     }
 
@@ -26,6 +29,7 @@ namespace WebApi.DTOs
         public double? Price { get; set; }
         public double? PriceAfterVat { get; set; }
         public string Currency { get; set; }
+        public DetalleDocumento DetalleDocumento { get; set; }
         public List<LineTaxJurisdictionDto> LineTaxJurisdictions { get; set; }
     }
 

@@ -14,5 +14,6 @@ namespace Core.Interfaces
         Task<int> InsertDocumentAsync(Documento documento);
         Task<Documento> GetDocumentByDocNumAsync(string id);
         Task ActualizarEstadoDocumentoAsync(int idDocumento);
+        Task<List<Documento>> GetDocumentosPorOrderIdAsync(int orderId);
     }
 }

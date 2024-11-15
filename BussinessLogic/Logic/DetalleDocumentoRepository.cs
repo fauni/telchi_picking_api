@@ -19,7 +19,7 @@ namespace BussinessLogic.Logic
         }
 
         // Obtener todos los detalles por ID de Documento
-        public async Task<IEnumerable<DetalleDocumento>> GetDetallesByDocumentoIdAsync(int documentoId)
+        public async Task<List<DetalleDocumento>> GetDetallesByDocumentoIdAsync(int documentoId)
         {
             var detalles = new List<DetalleDocumento>();
 

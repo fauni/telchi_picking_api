@@ -9,7 +9,7 @@ namespace Core.Interfaces
     public interface IDetalleDocumentoRepository
     {
         // Método para obtener todos los detalles de un documento específico por su id
-        Task<IEnumerable<DetalleDocumento>> GetDetallesByDocumentoIdAsync(int documentoId);
+        Task<List<DetalleDocumento>> GetDetallesByDocumentoIdAsync(int documentoId);
 
         // Método para insertar un nuevo detalle en la base de datos
         Task<int> InsertDetalleDocumentoAsync(DetalleDocumento detalle);

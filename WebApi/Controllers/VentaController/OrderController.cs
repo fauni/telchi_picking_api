@@ -13,14 +13,18 @@ namespace WebApi.Controllers.VentaController
     public class OrderController : ControllerBase
     {
         IOrderRepository _respository;
+        IDocumentoRepository _documentoRepository;
+        IDetalleDocumentoRepository _detalleDocumentoRepository;
         private readonly IMapper _mapper;
         protected ApiResponse _response;
 
-        public OrderController(IOrderRepository repository, IMapper mapper)
+        public OrderController(IOrderRepository repository, IMapper mapper, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository)
         {
             _respository = repository;
             _mapper = mapper;
             _response = new ApiResponse();
+            _documentoRepository = documentoRepository;
+            _detalleDocumentoRepository = detalleDocumentoRepository;
         }
 
         [HttpGet]
@@ -31,7 +35,28 @@ namespace WebApi.Controllers.VentaController
                 ? await _respository.GetForText(sessionID, search)
                 : await _respository.GetAll(sessionID, top, skip);
 
-            List<OrderDto> orderDtos = _mapper.Map<List<OrderDto>>(result);
+            // Lista de DTOs de órdenes con documentos y detalles
+            var orderDtos = new List<OrderDto>();
+
+            foreach (var order in result)
+            {
+                // Mapear la orden a OrderDto
+                var orderDto = _mapper.Map<OrderDto>(order);
+
+                // Obtener el documento asociado a la orden usando el 'DocNum'
+                var documento = await _documentoRepository.GetDocumentByDocNumAsync(order.DocNum.ToString());
+
+                // Mapear el documento a DocumentoDto si existe
+                if (documento != null)
+                {
+                    // Obtener los detalles del documento
+                    var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
+                    documento.Detalles = detalles;
+                    orderDto.Documento = documento;
+                }
+                orderDtos.Add(orderDto);
+            }
+            
             _response.IsSuccessful = true;
             _response.Resultado = orderDtos;
             _response.StatusCode = HttpStatusCode.OK;

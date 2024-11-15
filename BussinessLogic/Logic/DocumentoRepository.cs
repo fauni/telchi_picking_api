@@ -205,12 +205,42 @@ namespace BussinessLogic.Logic
                             NumeroDocumento = reader["NumeroDocumento"].ToString(),
                             FechaInicio = reader["FechaInicio"] as DateTime?,
                             FechaFinalizacion = reader["FechaFinalizacion"] as DateTime?,
-                            EstadoConteo = Convert.ToChar(reader["EstadoConteo"])
+                            EstadoConteo = (reader["EstadoConteo"]).ToString()
                         };
                     }
                 }
             }
             return null;
+        }
+
+        public async Task<List<Documento>> GetDocumentosPorOrderIdAsync(int orderId)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                string query = "SELECT * FROM Documento WHERE OrderId = @OrderId"; // Suponiendo que tienes OrderId en la tabla Documento
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@OrderId", orderId);
+
+                await connection.OpenAsync();
+                var documentos = new List<Documento>();
+
+                using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        documentos.Add(new Documento
+                        {
+                            IdDocumento = (int)reader["IdDocumento"],
+                            TipoDocumento = reader["TipoDocumento"].ToString(),
+                            NumeroDocumento = reader["NumeroDocumento"].ToString(),
+                            FechaInicio = reader["FechaInicio"] as DateTime?,
+                            FechaFinalizacion = reader["FechaFinalizacion"] as DateTime?,
+                            EstadoConteo = reader["EstadoConteo"].ToString()
+                        });
+                    }
+                }
+                return documentos;
+            }
         }
 
         public async Task<int> InsertDocumentAsync(Documento documento)

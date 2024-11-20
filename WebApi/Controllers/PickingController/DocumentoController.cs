@@ -14,13 +14,15 @@ namespace WebApi.Controllers.PickingController
     public class DocumentoController : ControllerBase
     {
         private readonly IDocumentoRepository _repository;
+        private readonly IDetalleDocumentoRepository _detalleDocumentoRepository;
         private readonly IOrderRepository _orderRepository; // Inyectar IOrdenRepository
         private readonly IMapper _mapper;
         protected ApiResponse _response;
 
-        public DocumentoController(IDocumentoRepository repository, IOrderRepository orderRepository, IMapper mapper)
+        public DocumentoController(IDocumentoRepository repository, IDetalleDocumentoRepository detalleDocumentoRepository, IOrderRepository orderRepository, IMapper mapper)
         {
             _repository = repository;
+            _detalleDocumentoRepository = detalleDocumentoRepository;
             _orderRepository = orderRepository;
             _mapper = mapper;
             _response = new ApiResponse();
@@ -39,6 +41,46 @@ namespace WebApi.Controllers.PickingController
             return Ok(documento);
 
 
+        }
+
+        // Endpoint para obtener todos los detalles por documentoId
+        [HttpGet("/detalles-para-sap")]
+        public async Task<IActionResult> GetDetallesPorNumeroDocumentoParaSap([FromQuery] string numeroDocumento)
+        {
+            var response = new ApiResponse();
+
+            try
+            {
+                if (String.IsNullOrEmpty(numeroDocumento))
+                {
+                    response.StatusCode = HttpStatusCode.BadRequest;
+                    response.IsSuccessful = false;
+                    response.ErrorMessages = new List<string> { "El número de documento es obligatorio." };
+                    return BadRequest(response);
+                }
+
+                var detalles = await _repository.ObtenerDetalleDocumentoPorNumeroAsync(numeroDocumento);
+
+                if (detalles == null || !detalles.Any())
+                {
+                    response.StatusCode = HttpStatusCode.NotFound;
+                    response.IsSuccessful = false;
+                    response.ErrorMessages = new List<string> { "No se encontraron detalles para el número de documento proporcionado." };
+                    return NotFound(response);
+                }
+
+                response.StatusCode = HttpStatusCode.OK;
+                response.IsSuccessful = true;
+                response.Resultado = detalles;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode((int)HttpStatusCode.InternalServerError, response);
+            }
         }
 
         // Endpoint para insertar un documento

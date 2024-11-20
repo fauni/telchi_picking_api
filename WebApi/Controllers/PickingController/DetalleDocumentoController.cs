@@ -66,38 +66,6 @@ namespace WebApi.Controllers.PickingController
             return response;
         }
 
-        // Endpoint para obtener todos los detalles por documentoId
-        [HttpGet("{documentoId}/detalles")]
-        public async Task<ApiResponse> GetDetallesByDocumentoId(int documentoId)
-        {
-            var response = new ApiResponse();
-
-            try
-            {
-                var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documentoId);
-                if (detalles == null || !detalles.Any())
-                {
-                    response.StatusCode = HttpStatusCode.NotFound;
-                    response.IsSuccessful = false;
-                    response.ErrorMessages = new List<string> { "Detalles no encontrados para el documento especificado" };
-                }
-                else
-                {
-                    response.StatusCode = HttpStatusCode.OK;
-                    response.IsSuccessful = true;
-                    response.Resultado = detalles;
-                }
-            }
-            catch (Exception ex)
-            {
-                response.StatusCode = HttpStatusCode.InternalServerError;
-                response.IsSuccessful = false;
-                response.ErrorMessages = new List<string> { ex.Message };
-            }
-
-            return response;
-        }
-
         // Endpoint para insertar un nuevo detalle
         [HttpPost("detalle")]
         public async Task<ApiResponse> InsertDetalleDocumento([FromBody] DetalleDocumento detalle)

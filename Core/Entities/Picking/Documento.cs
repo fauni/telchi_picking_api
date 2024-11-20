@@ -14,6 +14,7 @@ namespace Core.Entities.Picking
         public DateTime? FechaInicio { get; set; }
         public DateTime? FechaFinalizacion { get; set; }
         public string EstadoConteo { get; set; }
+        public int DocEntry { get; set; }
 
         // Lista para DetalleDocumento si deseas cargar los detalles
         public List<DetalleDocumento> Detalles { get; set; } = new List<DetalleDocumento>();

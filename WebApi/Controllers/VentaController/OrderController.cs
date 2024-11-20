@@ -62,5 +62,41 @@ namespace WebApi.Controllers.VentaController
             _response.StatusCode = HttpStatusCode.OK;
             return Ok(_response);
         }
+
+        [HttpGet("GetOrdenByDocNum/{docNum}")]
+        public async Task<IActionResult> GetOrdenByDocNum(string docNum)
+        {
+            var sessionID = Request.Headers["SessionID"];
+            var order = await _respository.GetOrderByDocNum(sessionID, docNum);
+
+            // Verifica si la orden fue encontrada
+            if(order == null)
+            {
+                _response.IsSuccessful = false;
+                _response.ErrorMessages = new List<string> { "Orden no encontrada." };
+                _response.StatusCode = HttpStatusCode.NotFound;
+                return NotFound(_response);
+            }
+
+            // Mapear la orden a OrderDto
+            var orderDto = _mapper.Map<OrderDto>(order);
+
+            // Obtener el documento asociado a la orden usando el 'DocNum'
+            var documento = await _documentoRepository.GetDocumentByDocNumAsync(order.DocNum.ToString());
+
+            // Mapear el documento a DocumentoDto si existe
+            if (documento != null)
+            {
+                // Obtener los detalles del documento
+                var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
+                documento.Detalles = detalles;
+                orderDto.Documento = documento;
+            }
+
+            _response.IsSuccessful = true;
+            _response.Resultado = orderDto;
+            _response.StatusCode = HttpStatusCode.OK;
+            return Ok(_response);
+        }
     }
 }

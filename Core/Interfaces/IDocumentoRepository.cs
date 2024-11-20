@@ -1,4 +1,5 @@
 ﻿using Core.Entities.Picking;
+using Core.Entities.Sap;
 using Core.Entities.Ventas;
 using System;
 using System.Collections.Generic;
@@ -15,5 +16,7 @@ namespace Core.Interfaces
         Task<Documento> GetDocumentByDocNumAsync(string id);
         Task ActualizarEstadoDocumentoAsync(int idDocumento);
         Task<List<Documento>> GetDocumentosPorOrderIdAsync(int orderId);
+        Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento);
+        Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle);
     }
 }

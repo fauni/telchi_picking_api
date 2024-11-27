@@ -26,7 +26,7 @@ namespace WebApi.Controllers.SapController
         /// <param name="docNum">Identificador único de la orden en SAP</param>
         /// <returns>Resultado de la actualización</returns>
         [HttpPatch("ActualizarConteoDocumento")]
-        public async Task<IActionResult> ActualizaConteoDocumentSap([FromHeader] string sessionID, [FromQuery] string docNum)
+        public async Task<IActionResult> ActualizaConteoDocumentSap([FromHeader] string sessionID, [FromQuery] string docNum, [FromQuery] string tipoDocumento)
         {
             if (string.IsNullOrWhiteSpace(sessionID))
             {
@@ -37,7 +37,7 @@ namespace WebApi.Controllers.SapController
             }
             try
             {
-                var detalles = await _documentoRepository.ObtenerDetalleDocumentoPorNumeroAsync(docNum);
+                var detalles = await _documentoRepository.ObtenerDetalleDocumentoPorNumeroAsync(docNum, tipoDocumento);
                 if (detalles == null || !detalles.Any())
                 {
                     _response.StatusCode = HttpStatusCode.NotFound;
@@ -57,7 +57,7 @@ namespace WebApi.Controllers.SapController
                 }
 
                 // Actualizar el conteo en SAP
-                var resultado = await _documentoRepository.ActualizarConteoOrdenSap(sessionID, docEntry.Value, detalles);
+                var resultado = await _documentoRepository.ActualizarConteoOrdenSap(sessionID, docEntry.Value, detalles, tipoDocumento);
 
                 if (resultado.Exito)
                 {

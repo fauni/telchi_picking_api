@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using BussinessLogic.Logic;
 using Core.Entities;
 using Core.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -6,21 +7,21 @@ using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using WebApi.DTOs;
 
-namespace WebApi.Controllers.VentaController
+namespace WebApi.Controllers.FacturaController
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class OrderController : ControllerBase
+    public class InvoiceController : ControllerBase
     {
-        IOrderRepository _respository;
-        IDocumentoRepository _documentoRepository;
-        IDetalleDocumentoRepository _detalleDocumentoRepository;
         private readonly IMapper _mapper;
         protected ApiResponse _response;
+        IInvoiceRepository _invoiceRepository;
+        IDocumentoRepository _documentoRepository;
+        IDetalleDocumentoRepository _detalleDocumentoRepository;
 
-        public OrderController(IOrderRepository repository, IMapper mapper, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository)
+        public InvoiceController(IMapper mapper, IInvoiceRepository invoiceRepository, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository)
         {
-            _respository = repository;
+            _invoiceRepository = invoiceRepository;
             _mapper = mapper;
             _response = new ApiResponse();
             _documentoRepository = documentoRepository;
@@ -32,8 +33,9 @@ namespace WebApi.Controllers.VentaController
         {
             var sessionID = Request.Headers["SessionID"];
             var result = search.Length > 0
-                ? await _respository.GetForText(sessionID, search)
-                : await _respository.GetAll(sessionID, top, skip);
+                ? await _invoiceRepository.GetForText(sessionID, search)
+                // ? await _invoiceRepository.GetAll(sessionID, top, skip)
+                : await _invoiceRepository.GetAll(sessionID, top, skip);
 
             // Lista de DTOs de órdenes con documentos y detalles
             var orderDtos = new List<OrderDto>();
@@ -56,24 +58,24 @@ namespace WebApi.Controllers.VentaController
                 }
                 orderDtos.Add(orderDto);
             }
-            
+
             _response.IsSuccessful = true;
             _response.Resultado = orderDtos;
             _response.StatusCode = HttpStatusCode.OK;
             return Ok(_response);
         }
 
-        [HttpGet("GetOrdenByDocNum/{docNum}/{tipoDocumento}")]
-        public async Task<IActionResult> GetOrdenByDocNum(string docNum, string tipoDocumento)
+        [HttpGet("GetInvoiceByDocNum/{docNum}/{tipoDocumento}")]
+        public async Task<IActionResult> GetInvoiceByDocNum(string docNum, string tipoDocumento)
         {
             var sessionID = Request.Headers["SessionID"];
-            var order = await _respository.GetOrderByDocNum(sessionID, docNum, tipoDocumento);
+            var order = await _invoiceRepository.GetOrderByDocNum(sessionID, docNum, tipoDocumento);
 
             // Verifica si la orden fue encontrada
-            if(order == null)
+            if (order == null)
             {
                 _response.IsSuccessful = false;
-                _response.ErrorMessages = new List<string> { "Orden no encontrada." };
+                _response.ErrorMessages = new List<string> { "Factura no encontrada." };
                 _response.StatusCode = HttpStatusCode.NotFound;
                 return NotFound(_response);
             }

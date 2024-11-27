@@ -11,6 +11,7 @@ public class DetalleDocumento
     public decimal CantidadEsperada { get; set; }
     public decimal CantidadContada { get; set; }
     public string Estado { get; set; }
+    public string CodigoBarras { get; set; }
 
     // Lista para ConteoItems si deseas cargar los conteos
     public List<ConteoItems> Conteos { get; set; } = new List<ConteoItems>();

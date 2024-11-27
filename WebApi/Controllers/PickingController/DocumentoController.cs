@@ -29,10 +29,10 @@ namespace WebApi.Controllers.PickingController
         }
 
         // Endpoint para obtener un documento por ID
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetDocumentById(string id)
+        [HttpGet("{id}/{tipoDocumento}")]
+        public async Task<IActionResult> GetDocumentById(string id, string tipoDocumento)
         {
-            var documento = await _repository.GetDocumentByDocNumAsync(id);
+            var documento = await _repository.GetDocumentByDocNumAsync(id, tipoDocumento);
 
             if (documento == null) 
             { 
@@ -45,27 +45,35 @@ namespace WebApi.Controllers.PickingController
 
         // Endpoint para obtener todos los detalles por documentoId
         [HttpGet("/detalles-para-sap")]
-        public async Task<IActionResult> GetDetallesPorNumeroDocumentoParaSap([FromQuery] string numeroDocumento)
+        public async Task<IActionResult> GetDetallesPorNumeroDocumentoParaSap(
+            [FromQuery] string numeroDocumento,
+            [FromQuery] string tipoDocumento
+        )
         {
             var response = new ApiResponse();
 
             try
             {
-                if (String.IsNullOrEmpty(numeroDocumento))
+                // Validar que los parámetros no sean nulos o vacíos
+                if (string.IsNullOrEmpty(numeroDocumento) || string.IsNullOrEmpty(tipoDocumento))
                 {
                     response.StatusCode = HttpStatusCode.BadRequest;
                     response.IsSuccessful = false;
-                    response.ErrorMessages = new List<string> { "El número de documento es obligatorio." };
+                    response.ErrorMessages = new List<string>
+            {
+                "El número de documento y el tipo de documento son obligatorios."
+            };
                     return BadRequest(response);
                 }
 
-                var detalles = await _repository.ObtenerDetalleDocumentoPorNumeroAsync(numeroDocumento);
+                // Obtener los detalles en base al número de documento y tipo de documento
+                var detalles = await _repository.ObtenerDetalleDocumentoPorNumeroAsync(numeroDocumento, tipoDocumento);
 
                 if (detalles == null || !detalles.Any())
                 {
                     response.StatusCode = HttpStatusCode.NotFound;
                     response.IsSuccessful = false;
-                    response.ErrorMessages = new List<string> { "No se encontraron detalles para el número de documento proporcionado." };
+                    response.ErrorMessages = new List<string> { "No se encontraron detalles para el número y tipo de documento proporcionado." };
                     return NotFound(response);
                 }
 
@@ -111,7 +119,7 @@ namespace WebApi.Controllers.PickingController
             try
             {
                 // Obtener la orden desde SAP B1 usando el OrderRepository
-                var order = await _orderRepository.GetOrderByDocNum(sessionID, docNum);
+                var order = await _orderRepository.GetOrderByDocNum(sessionID, docNum, tipoDocumento);
                 if (order == null)
                 {
                     _response.StatusCode = HttpStatusCode.NotFound;
@@ -126,7 +134,7 @@ namespace WebApi.Controllers.PickingController
                 _response.StatusCode = HttpStatusCode.Created;
                 _response.IsSuccessful = true;
                 _response.Resultado = new { DocumentId = documentId };
-                return CreatedAtAction(nameof(GetDocumentById), new { id = documentId }, _response);
+                return CreatedAtAction(nameof(GetDocumentById), new { id = documentId, tipoDocumento }, _response);
             } catch (Exception ex)
             {
                 _response.StatusCode = HttpStatusCode.NotFound;

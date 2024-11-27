@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces
 {
-    public interface IOrderRepository
+    public interface IPurchaseOrderRepository
     {
         Task<Order> GetOrderByDocNum(String sessionID, string docNum, string tipoDocumento);
         Task<List<Order>> GetAll(String sessionID, int top, int skip);

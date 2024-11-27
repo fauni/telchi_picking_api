@@ -13,10 +13,10 @@ namespace Core.Interfaces
     {
         Task<int> CreateDocumentFromOrderAsync(Order order, string tipoDocumnento);
         Task<int> InsertDocumentAsync(Documento documento);
-        Task<Documento> GetDocumentByDocNumAsync(string id);
+        Task<Documento> GetDocumentByDocNumAsync(string id, string tipoDocumento);
         Task ActualizarEstadoDocumentoAsync(int idDocumento);
         Task<List<Documento>> GetDocumentosPorOrderIdAsync(int orderId);
-        Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento);
-        Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle);
+        Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento, string tipoDocumento);
+        Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle, string tipoDocumento);
     }
 }

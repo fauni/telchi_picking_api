@@ -267,7 +267,7 @@ namespace Core.Entities.Ventas
         public List<string> DocumentApprovalRequests { get; set; }
         public List<DocumentLineOrder> DocumentLines { get; set; }
         public List<string> ElectronicProtocols { get; set; }
-        public List<string> DocumentAdditionalExpenses { get; set; }
+        public List<object>? DocumentAdditionalExpenses { get; set; }
         public List<string> WithholdingTaxDataWtxCollection { get; set; }
         public List<string> WithholdingTaxDataCollection { get; set; }
         public List<string> DocumentSpecialLines { get; set; }

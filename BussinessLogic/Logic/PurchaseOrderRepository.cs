@@ -10,17 +10,18 @@ using System.Threading.Tasks;
 
 namespace BussinessLogic.Logic
 {
-    public class OrderRepository : IOrderRepository
+    public class PurchaseOrderRepository: IPurchaseOrderRepository
     {
         private readonly IConfiguration _configuration;
-        public OrderRepository(IConfiguration configuration)
+
+        public PurchaseOrderRepository(IConfiguration configuration)
         {
             _configuration = configuration;
         }
 
         public async Task<List<Order>> GetAll(string sessionID, int top, int skip)
         {
-            string url = _configuration["SapCredentials:Url"] + $"/Orders?$filter=DocumentStatus eq 'bost_Open'&$orderby=DocEntry desc&$top={top}&$skip={skip}";
+            string url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices?$filter=DocumentStatus eq 'bost_Open'&$orderby=DocEntry desc&$top={top}&$skip={skip}";
             try
             {
                 HttpClientHandler handler = new HttpClientHandler();
@@ -45,14 +46,15 @@ namespace BussinessLogic.Logic
                     }
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 throw new Exception(ex.Message);
             }
         }
 
         public async Task<List<Order>> GetForText(string sessionID, string search)
         {
-            string url = _configuration["SapCredentials:Url"] + @$"/Orders?$filter=contains(DocNum, '{search}') or contains(DocDate, '{search}') or contains(CardCode, '{search}') or contains(CardName, '{search}')&$orderby=DocEntry desc";
+            string url = _configuration["SapCredentials:Url"] + @$"/PurchaseInvoices?$filter=contains(DocNum, '{search}') or contains(DocDate, '{search}') or contains(CardCode, '{search}') or contains(CardName, '{search}')&$orderby=DocEntry desc";
 
             try
             {
@@ -78,7 +80,8 @@ namespace BussinessLogic.Logic
                         throw new Exception(errorResponse);
                     }
                 }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
@@ -99,7 +102,7 @@ namespace BussinessLogic.Logic
             {
                 url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices?$filter=DocNum eq {docNum}"; // Obtener documentos de factura de compra
             }
-            else 
+            else
             {
                 // TODO: Agregar metodos para los demas tipos de documento
             }
@@ -116,7 +119,7 @@ namespace BussinessLogic.Logic
 
                     // Enviar la solicitud GET
                     HttpResponseMessage response = await httpClient.GetAsync(url);
-                     
+
                     if (response.IsSuccessStatusCode)
                     {
                         string responseBody = await response.Content.ReadAsStringAsync();
@@ -129,7 +132,7 @@ namespace BussinessLogic.Logic
                         }
                         else
                         {
-                            throw new Exception("No se encontró una orden con el DocNum especificado.");
+                            throw new Exception("No se encontró la factura con el DocNum especificado.");
                         }
                     }
                     else

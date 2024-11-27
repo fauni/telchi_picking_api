@@ -24,6 +24,8 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IDocumentoRepository, DocumentoRepository>();
 builder.Services.AddScoped<IDetalleDocumentoRepository, DetalleDocumentoRepository>();
 
+builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+
 // Configurar autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];

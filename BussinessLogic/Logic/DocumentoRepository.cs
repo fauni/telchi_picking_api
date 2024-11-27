@@ -23,9 +23,22 @@ namespace BussinessLogic.Logic
             _configuration = configuration;
         }
 
-        public async Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle)
+        public async Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle, string tipoDocumento)
         {
-            string url = _configuration["SapCredentials:Url"] + $"/Orders({docEntry})";
+            // TODO: Es necesario actualizar la url de acuerdo al tipo de docmento
+            string url = "";
+            if (tipoDocumento == "orden_venta")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/Orders({docEntry})";
+            }
+            else if (tipoDocumento == "factura")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/Invoices({docEntry})";
+            } else
+            {
+                // TODO: Es necesario completar los métodos 
+            }
+            
             try
             {
                 HttpClientHandler handler = new HttpClientHandler
@@ -54,6 +67,7 @@ namespace BussinessLogic.Logic
 
                     if (response.IsSuccessStatusCode)
                     {
+                        await ActualizarEstadoActualizacionSapAsync(docEntry, tipoDocumento);
                         return new ResultadoActualizacionSap
                         {
                             Exito = true,
@@ -85,67 +99,6 @@ namespace BussinessLogic.Logic
             }
         }
 
-
-        /*
-        public async Task ActualizarEstadoDocumentoAsync(int idDocumento)
-        {
-            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
-
-                // Verificar el estado de los items en DetalleDocumento
-                string estadoDocumento = "P"; // Estado inicial
-                string query = "SELECT * FROM DetalleDocumento WHERE IdDocumento = @IdDocumento";
-                bool todosCompletados = true;
-                bool algunEnProceso = false;
-
-                using(SqlCommand command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@IdDocumento", idDocumento);
-                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
-                    {
-                        while(await reader.ReadAsync())
-                        {
-                            string estadoItem = reader["Estado"].ToString();
-                            if(estadoItem == "En Progreso")
-                            {
-                                algunEnProceso = true;
-                                todosCompletados = false;
-                            } else if(estadoItem == "Pendiente")
-                            {
-                                todosCompletados = false;
-                            } else if(estadoItem == "Completado" && !algunEnProceso)
-                            {
-                                // No hacemos cambios a algunEnProceso o todos completados
-                            }
-                        }
-                    }
-
-                    // Determinar el estado final del documento
-                    if (todosCompletados)
-                    {
-                        estadoDocumento = "F";
-                    } else if (algunEnProceso)
-                    {
-                        estadoDocumento = "I";
-                    } else
-                    {
-                        estadoDocumento = "P";
-                    }
-
-                    // Paso 2: Actualizar el estado del documento y la fecha de modificación si cambió el estado
-                    string updateQuery = "UPDATE Documento SET EstadoConteo = @Estado, FechaFinalizacion = @FechaFinalizacion WHERE IdDocumento = @IdDocumento";
-                    using(SqlCommand updateCommand = new SqlCommand(updateQuery, connection))
-                    {
-                        updateCommand.Parameters.AddWithValue("@Estado", estadoDocumento);
-                        updateCommand.Parameters.AddWithValue("@FechaFinalizacion", DateTime.Now);
-                        updateCommand.Parameters.AddWithValue("@IdDocumento", idDocumento);
-                        await updateCommand.ExecuteNonQueryAsync();
-                    }
-                }
-            }
-        }
-        */
         public async Task ActualizarEstadoDocumentoAsync(int idDocumento)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -179,7 +132,11 @@ namespace BussinessLogic.Logic
                 {
                     estadoDocumento = "F"; // Todos los detalles están completados
                 }
-                else
+                else if (estados.Contains("En Progreso")) 
+                {
+                    estadoDocumento = "I";
+                } 
+                else 
                 {
                     estadoDocumento = "P"; // Solo tiene detalles pendientes
                 }
@@ -191,6 +148,24 @@ namespace BussinessLogic.Logic
                     updateCommand.Parameters.AddWithValue("@Estado", estadoDocumento);
                     updateCommand.Parameters.AddWithValue("@FechaFinalizacion", DateTime.Now);
                     updateCommand.Parameters.AddWithValue("@IdDocumento", idDocumento);
+                    await updateCommand.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
+        public async Task ActualizarEstadoActualizacionSapAsync(int docEntry, string tipoDocumento)
+        {
+            // TODO: Revisar aplicación de tipo documento
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                string updateQuery = "UPDATE Documento SET ActualizadoSap = @ActualizadoSap WHERE DocEntry = @DocEntry and TipoDocumento=@TipoDocumento";
+                using (SqlCommand updateCommand = new SqlCommand(updateQuery, connection))
+                {
+                    updateCommand.Parameters.AddWithValue("@ActualizadoSap", "Y");
+                    updateCommand.Parameters.AddWithValue("@FechaFinalizacion", DateTime.Now);
+                    updateCommand.Parameters.AddWithValue("@DocEntry", docEntry);
+                    updateCommand.Parameters.AddWithValue("@TipoDocumento", tipoDocumento);
                     await updateCommand.ExecuteNonQueryAsync();
                 }
             }
@@ -221,8 +196,8 @@ namespace BussinessLogic.Logic
                         int documentId = Convert.ToInt32(result);
 
                         // Paso 2: Insertar cada línea en la tabla Detalle Documento
-                        string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado) " +
-                                    "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado);";
+                        string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
+                                    "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
 
                         foreach (var line in order.DocumentLines)
                         {
@@ -234,6 +209,7 @@ namespace BussinessLogic.Logic
                             commandDetalle.Parameters.AddWithValue("@CantidadEsperada", line.Quantity);
                             commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
                             commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
+                            commandDetalle.Parameters.AddWithValue("@CodigoBarras", line.BarCode);
 
                             await commandDetalle.ExecuteNonQueryAsync();
                         }
@@ -252,13 +228,14 @@ namespace BussinessLogic.Logic
             }
         }
 
-        public async Task<Documento> GetDocumentByDocNumAsync(string id)
+        public async Task<Documento> GetDocumentByDocNumAsync(string id, string tipoDocumento)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
-                string sql = "SELECT * FROM Documento WHERE NumeroDocumento = @Id";
+                string sql = "SELECT * FROM Documento WHERE NumeroDocumento = @Id and TipoDocumento = @TipoDocumento";
                 SqlCommand command = new SqlCommand(sql, connection);
                 command.Parameters.AddWithValue("@Id", id);
+                command.Parameters.AddWithValue("@TipoDocumento", tipoDocumento);
 
                 await connection.OpenAsync();
                 using (SqlDataReader reader = await command.ExecuteReaderAsync())
@@ -273,7 +250,8 @@ namespace BussinessLogic.Logic
                             NumeroDocumento = reader["NumeroDocumento"].ToString(),
                             FechaInicio = reader["FechaInicio"] as DateTime?,
                             FechaFinalizacion = reader["FechaFinalizacion"] as DateTime?,
-                            EstadoConteo = (reader["EstadoConteo"]).ToString()
+                            EstadoConteo = (reader["EstadoConteo"]).ToString(),
+                            ActualizadoSap = reader["ActualizadoSap"].ToString()
                         };
                     }
                 }
@@ -281,6 +259,7 @@ namespace BussinessLogic.Logic
             return null;
         }
 
+        // TODO: Revisar este metodo GetDocumentosPorOrderIdAsync si se utiliza o no
         public async Task<List<Documento>> GetDocumentosPorOrderIdAsync(int orderId)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -303,7 +282,8 @@ namespace BussinessLogic.Logic
                             NumeroDocumento = reader["NumeroDocumento"].ToString(),
                             FechaInicio = reader["FechaInicio"] as DateTime?,
                             FechaFinalizacion = reader["FechaFinalizacion"] as DateTime?,
-                            EstadoConteo = reader["EstadoConteo"].ToString()
+                            EstadoConteo = reader["EstadoConteo"].ToString(),
+                            ActualizadoSap = reader["ActualizadoSap"].ToString()
                         });
                     }
                 }
@@ -337,7 +317,8 @@ namespace BussinessLogic.Logic
             }
         }
 
-        public async Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento)
+
+        public async Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento, string tipoDocumento)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
@@ -357,10 +338,12 @@ namespace BussinessLogic.Logic
                 FROM Documento d
                 INNER JOIN DetalleDocumento dd ON d.IdDocumento = dd.IdDocumento
                 LEFT JOIN ConteoItems c ON dd.IdDetalle = c.IdDetalle
-                WHERE d.NumeroDocumento = @NumeroDocumento
+                WHERE d.NumeroDocumento = @NumeroDocumento and d.TipoDocumento = @TipoDocumento
                 GROUP BY d.DocEntry, d.NumeroDocumento, dd.IdDetalle, dd.CodigoItem, dd.NumeroLinea, dd.CantidadContada";
                 SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@NumeroDocumento", numeroDocumento);
+                command.Parameters.AddWithValue("@TipoDocumento", tipoDocumento);
+
                 await connection.OpenAsync();
                 var detalles = new List<DetalleDocumentoToSap>();
                 using (SqlDataReader reader = await command.ExecuteReaderAsync())

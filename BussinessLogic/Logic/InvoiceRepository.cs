@@ -138,7 +138,7 @@ namespace BussinessLogic.Logic
                     else
                     {
                         var errorResponse = await response.Content.ReadAsStringAsync();
-                        throw new Exception($"Error al obtener la orden: {errorResponse}");
+                        throw new Exception($"Error al obtener la factura: {errorResponse}");
                     }
                 }
             }

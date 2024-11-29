@@ -23,7 +23,8 @@ namespace Data.Implementation
             {
                 CompanyDB = _configuration["SapCredentials:CompanyDB"],
                 Password = _configuration["SapCredentials:Password"],
-                UserName = _configuration["SapCredentials:UserName"]
+                UserName = _configuration["SapCredentials:UserName"],
+                Language = "23"
             };
             // Configurar el HttpClientHandler para ignorar errores de certificado
             HttpClientHandler handler = new HttpClientHandler();

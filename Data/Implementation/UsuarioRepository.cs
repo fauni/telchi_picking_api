@@ -55,7 +55,8 @@ namespace Data.Implementation
             }
             catch(Exception ex) {
                 // TODO: Agregar manejo de errores
-                return false;
+                throw new Exception(ex.Message);
+                // return false;
             }
         }
 

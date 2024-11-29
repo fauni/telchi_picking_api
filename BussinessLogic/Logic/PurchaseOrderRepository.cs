@@ -132,13 +132,13 @@ namespace BussinessLogic.Logic
                         }
                         else
                         {
-                            throw new Exception("No se encontró la factura con el DocNum especificado.");
+                            throw new Exception("No se encontró la factura de compra con el DocNum especificado.");
                         }
                     }
                     else
                     {
                         var errorResponse = await response.Content.ReadAsStringAsync();
-                        throw new Exception($"Error al obtener la orden: {errorResponse}");
+                        throw new Exception($"Error al obtener la factura de compra: {errorResponse}");
                     }
                 }
             }

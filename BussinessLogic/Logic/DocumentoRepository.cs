@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -23,9 +24,33 @@ namespace BussinessLogic.Logic
             _configuration = configuration;
         }
 
+        public async Task<string> ProcessErrorResponseAsync(string jsonResponse)
+        {
+            try
+            {
+                // Parsear el JSON para extraer el mensaje
+                var jsonObject = Newtonsoft.Json.Linq.JObject.Parse(jsonResponse);
+                string messageValue = jsonObject["error"]?["message"]?["value"]?.ToString();
+
+                if (!string.IsNullOrEmpty(messageValue))
+                {
+                    return messageValue; // Devolver solo el campo "value"
+                }
+                else
+                {
+                    return "No se encontró el mensaje de error.";
+                }
+            }
+            catch (Exception ex)
+            {
+                // Manejar excepciones en caso de que el formato no sea válido
+                return $"Error al procesar la respuesta: {ex.Message}";
+            }
+        }
+
+
         public async Task<ResultadoActualizacionSap> ActualizarConteoOrdenSap(string sessionID, int docEntry, List<DetalleDocumentoToSap> detalle, string tipoDocumento)
         {
-            // TODO: Es necesario actualizar la url de acuerdo al tipo de docmento
             string url = "";
             if (tipoDocumento == "orden_venta")
             {
@@ -34,9 +59,15 @@ namespace BussinessLogic.Logic
             else if (tipoDocumento == "factura")
             {
                 url = _configuration["SapCredentials:Url"] + $"/Invoices({docEntry})";
-            } else
+            }
+            else if (tipoDocumento == "factura_compra")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices({docEntry})";
+            }
+            else 
             {
                 // TODO: Es necesario completar los métodos 
+                url = _configuration["SapCredentials:Url"] + $"/Invoices({docEntry})"; // Aqui la url para transferencias completar
             }
             
             try
@@ -78,11 +109,11 @@ namespace BussinessLogic.Logic
                     else
                     {
                         string errorMessage = await response.Content.ReadAsStringAsync();
-
+                        string mensajeDeError = await ProcessErrorResponseAsync(errorMessage);
                         return new ResultadoActualizacionSap
                         {
                             Exito = false,
-                            Mensaje = $"Error al actualizar en SAP: {errorMessage}",
+                            Mensaje = $"Error al actualizar en SAP: {mensajeDeError}",
                             CodigoEstado = response.StatusCode.ToString()
                         };
                     }
@@ -155,7 +186,6 @@ namespace BussinessLogic.Logic
 
         public async Task ActualizarEstadoActualizacionSapAsync(int docEntry, string tipoDocumento)
         {
-            // TODO: Revisar aplicación de tipo documento
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
@@ -209,7 +239,10 @@ namespace BussinessLogic.Logic
                             commandDetalle.Parameters.AddWithValue("@CantidadEsperada", line.Quantity);
                             commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
                             commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
-                            commandDetalle.Parameters.AddWithValue("@CodigoBarras", line.BarCode);
+                            commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+                            {
+                                Value = line.BarCode ?? (object)DBNull.Value
+                            }); // Maneja el nulo
 
                             await commandDetalle.ExecuteNonQueryAsync();
                         }

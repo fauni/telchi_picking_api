@@ -55,6 +55,20 @@ namespace WebApi.Controllers.FacturaController
                     var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
                     documento.Detalles = detalles;
                     orderDto.Documento = documento;
+
+                    foreach (var item_orden in orderDto.DocumentLines)
+                    {
+                        try
+                        {
+                            var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                            item_orden.DetalleDocumento = detalleRelacionado;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new Exception(ex.Message);
+                        }
+
+                    }
                 }
                 orderDtos.Add(orderDto);
             }
@@ -93,6 +107,11 @@ namespace WebApi.Controllers.FacturaController
                 var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
                 documento.Detalles = detalles;
                 orderDto.Documento = documento;
+                foreach (var item_orden in orderDto.DocumentLines)
+                {
+                    var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                    item_orden.DetalleDocumento = detalleRelacionado;
+                }
             }
 
             _response.IsSuccessful = true;

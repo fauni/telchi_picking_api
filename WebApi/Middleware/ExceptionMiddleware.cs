@@ -1,5 +1,7 @@
 ﻿using Core.Entities;
+using Core.Entities.Error;
 using System.Net;
+using System.Security.AccessControl;
 using System.Text.Json;
 
 namespace WebApi.Middleware
@@ -25,26 +27,42 @@ namespace WebApi.Middleware
             }
             catch (Exception ex)
             {
+                ApiResponse response = new ApiResponse();
                 _logger.LogError(ex, ex.Message);
 
-                // Guardar log en archivo de texto
-                LogErrorToFile(ex);
+                
 
                 context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-                var response = _environment.IsDevelopment()
-                    ? new ApiResponse()
+                if (ex is ApiException apiEx)
+                {
+                    context.Response.StatusCode = apiEx.StatusCode;
+                    response = new ApiResponse()
                     {
                         IsSuccessful = false,
-                        StatusCode = HttpStatusCode.InternalServerError,
+                        StatusCode = apiEx.StatusCode == 401 ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError,
                         ErrorMessages = new List<string> { ex.Message }
-                    }
-                    : new ApiResponse()
-                    {
-                        IsSuccessful = false,
-                        StatusCode = HttpStatusCode.InternalServerError
                     };
+                } else
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+                    response = _environment.IsDevelopment()
+                        ? new ApiResponse()
+                        {
+                            IsSuccessful = false,
+                            StatusCode = HttpStatusCode.InternalServerError,
+                            ErrorMessages = new List<string> { ex.Message }
+                        }
+                        : new ApiResponse()
+                        {
+                            IsSuccessful = false,
+                            StatusCode = HttpStatusCode.InternalServerError,
+                            ErrorMessages = new List<string> { ex.Message }
+                        };
+                }
+
+                
 
                 var options = new JsonSerializerOptions
                 {
@@ -54,26 +72,78 @@ namespace WebApi.Middleware
                 var json = JsonSerializer.Serialize(response, options);
 
                 await context.Response.WriteAsync(json);
+
+                // Guardar log en archivo de texto
+                LogErrorToFile(ex);
             }
         }
 
+        private static readonly object _lock = new object();
+
         private void LogErrorToFile(Exception ex)
         {
-            // Crear directorio si no existe
             string directoryPath = @"C:\Logs_Telchi";
-            if (!Directory.Exists(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
+            EnsureDirectoryWithPermissions(directoryPath);
 
-            // Crear el nombre del archivo con la fecha actual
-            string filePath = Path.Combine(directoryPath, $"log-{DateTime.Now:yyyy-MM-dd}.txt");
+            string filePath = Path.Combine(directoryPath, $"LOGs-{DateTime.Now:yyyy-MM-dd}.txt");
+            EnsureFileWithPermissions(filePath);
 
-            // Crear el mensaje de log con fecha y hora
             string logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Error: {ex.Message}\nStack Trace: {ex.StackTrace}\n";
 
-            // Escribir en el archivo (agregar si ya existe)
-            File.AppendAllText(filePath, logMessage);
+            lock (_lock)
+            {
+                File.AppendAllText(filePath, logMessage);
+            }
+        }
+
+        private void EnsureDirectoryWithPermissions(string directoryPath)
+        {
+            // Verificar si el directorio ya existe
+            if (!Directory.Exists(directoryPath))
+            {
+                // Crear el directorio
+                Directory.CreateDirectory(directoryPath);
+
+                // Configurar permisos
+                var directoryInfo = new DirectoryInfo(directoryPath);
+                var directorySecurity = directoryInfo.GetAccessControl();
+
+                // Agregar permisos para el usuario del proceso actual
+                string user = Environment.UserDomainName + "\\" + Environment.UserName;
+                directorySecurity.AddAccessRule(new FileSystemAccessRule(
+                    user,                                // Usuario
+                    FileSystemRights.FullControl,       // Permisos completos
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, // Aplicar a subdirectorios y archivos
+                    PropagationFlags.None,              // Sin propagación
+                    AccessControlType.Allow));          // Tipo de acceso: permitir
+
+                // Aplicar los permisos al directorio
+                directoryInfo.SetAccessControl(directorySecurity);
+            }
+        }
+
+        private void EnsureFileWithPermissions(string filePath)
+        {
+            // Verificar si el archivo ya existe
+            if (!File.Exists(filePath))
+            {
+                // Crear el archivo vacío
+                File.Create(filePath).Dispose();
+
+                // Configurar permisos
+                var fileInfo = new FileInfo(filePath);
+                var fileSecurity = fileInfo.GetAccessControl();
+
+                // Agregar permisos para el usuario del proceso actual
+                string user = Environment.UserDomainName + "\\" + Environment.UserName;
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(
+                    user,                              // Usuario
+                    FileSystemRights.FullControl,     // Permisos completos
+                    AccessControlType.Allow));        // Tipo de acceso: permitir
+
+                // Aplicar los permisos al archivo
+                fileInfo.SetAccessControl(fileSecurity);
+            }
         }
     }
 }

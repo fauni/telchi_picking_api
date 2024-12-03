@@ -43,7 +43,8 @@ namespace BussinessLogic.Logic
                             CantidadEsperada = Convert.ToDecimal(reader["cantidadEsperada"]),
                             CantidadContada = Convert.ToDecimal(reader["cantidadContada"]),
                             Estado = reader["estado"].ToString(),
-                            CodigoBarras = reader["CodigoBarras"].ToString()
+                            CodigoBarras = reader["CodigoBarras"].ToString(),
+                            NumeroLinea = (int)reader["numeroLinea"]
                         };
                         detalles.Add(detalle);
                     }

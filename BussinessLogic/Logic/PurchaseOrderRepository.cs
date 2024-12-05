@@ -1,4 +1,5 @@
-﻿using Core.Entities.Ventas;
+﻿using Core.Entities.Error;
+using Core.Entities.Ventas;
 using Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -40,15 +41,17 @@ namespace BussinessLogic.Logic
                     else
                     {
                         var errorResponse = await response.Content.ReadAsStringAsync();
-                        // var codeError = new CodeErrorException((int)response.StatusCode, errorResponse);
-                        // return null, codeError);
-                        throw new Exception(errorResponse);
+                        throw new ApiException((int)response.StatusCode, errorResponse);
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                if (ex is ApiException apiEx)
+                {
+                    throw apiEx;
+                }
+                throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
 
@@ -77,13 +80,17 @@ namespace BussinessLogic.Logic
                         var errorResponse = await response.Content.ReadAsStringAsync();
                         // var codeError = new CodeErrorException((int)response.StatusCode, errorResponse);
                         // return null, codeError);
-                        throw new Exception(errorResponse);
+                        throw new ApiException((int)response.StatusCode, errorResponse);
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                if (ex is ApiException apiEx)
+                {
+                    throw apiEx;
+                }
+                throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
 
@@ -132,19 +139,23 @@ namespace BussinessLogic.Logic
                         }
                         else
                         {
-                            throw new Exception("No se encontró la factura de compra con el DocNum especificado.");
+                            throw new ApiException((int)response.StatusCode, "No se encontró la factura de compra con el DocNum especificado.");
                         }
                     }
                     else
                     {
                         var errorResponse = await response.Content.ReadAsStringAsync();
-                        throw new Exception($"Error al obtener la factura de compra: {errorResponse}");
+                        throw new ApiException((int)response.StatusCode, $"Error al obtener la factura de compra: {errorResponse}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                if (ex is ApiException apiEx)
+                {
+                    throw apiEx;
+                }
+                throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
     }

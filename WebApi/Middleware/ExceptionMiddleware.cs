@@ -92,7 +92,7 @@ namespace WebApi.Middleware
 
             lock (_lock)
             {
-                File.AppendAllText(filePath, logMessage);
+                //File.AppendAllText(filePath, logMessage);
             }
         }
 

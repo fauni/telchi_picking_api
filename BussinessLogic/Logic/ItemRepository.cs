@@ -4,6 +4,7 @@ using Core.Entities.Ventas;
 using Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Sap.Data.Hana;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -77,6 +78,61 @@ namespace BussinessLogic.Logic
             }
 
             return allItems; // Return the aggregated list of items
+        }
+
+        public async Task<List<ItemWhs>> GetItemsByWarehouseAsync(string whsCode)
+        {
+            string connectionString = _configuration.GetConnectionString("SapHanaConnection");
+            var items = new List<ItemWhs>();
+
+            using (var connection = new HanaConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                string query = @"
+                    SELECT 
+                        T0.""ItemCode"", 
+                        T0.""ItemName"", 
+                        T0.""CodeBars"",
+                        T1.""OnHand"", 
+                        T1.""IsCommited"", 
+                        T1.""OnOrder"", 
+                        T2.""WhsCode"",
+                        T2.""WhsName""
+                    FROM 
+                        ""TELCHI_QAS_EC"".""OITM"" T0
+                    INNER JOIN 
+                        ""TELCHI_QAS_EC"".""OITW"" T1 ON T0.""ItemCode"" = T1.""ItemCode""
+                    INNER JOIN 
+                        ""TELCHI_QAS_EC"".""OWHS"" T2 ON T1.""WhsCode"" = T2.""WhsCode""
+                    WHERE 
+                        T2.""WhsCode"" = :WhsCode
+                    ORDER BY 
+                        T0.""ItemCode"";
+                ";
+
+                using (var command = new HanaCommand(query, connection))
+                {
+                    command.Parameters.Add(new HanaParameter("WhsCode", whsCode));
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            items.Add(new ItemWhs
+                            {
+                                ItemCode = reader["ItemCode"].ToString(),
+                                ItemName = reader["ItemName"].ToString(),
+                                CodeBars = reader["CodeBars"].ToString(),
+                                OnHand = reader["OnHand"] != DBNull.Value ? Convert.ToDecimal(reader["OnHand"]) : 0,
+                                IsCommited = reader["IsCommited"] != DBNull.Value ? Convert.ToDecimal(reader["IsCommited"]) : 0,
+                                OnOrder = reader["OnOrder"] != DBNull.Value ? Convert.ToDecimal(reader["OnOrder"]) : 0,
+                                WhsCode = reader["WhsCode"].ToString(),
+                                WhsName = reader["WhsName"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            return items;
         }
     }
 }

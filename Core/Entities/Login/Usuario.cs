@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Core.Entities.Almacenes;
 
 namespace Core.Entities.Login
 {
@@ -20,5 +16,6 @@ namespace Core.Entities.Login
         public bool EstaActivo { get; set; }  // Estado activo o inactivo
         public DateTime FechaCreacion { get; set; }  // Fecha de creación
         public DateTime? FechaModificacion { get; set; }  // Fecha de última modificación
+        public List<Almacen> Almacenes { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Core.Entities.Login;
+﻿using Core.Entities.Almacenes;
+using Core.Entities.Login;
 using Data.Helpers;
 using Data.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -11,9 +12,11 @@ namespace Data.Implementation
     public class AuthRepository: IAuthRepository
     {
         private readonly IConfiguration _configuration;
-        public AuthRepository(IConfiguration configuration)
+        private readonly IAlmacenRepository _almacenRepository;
+        public AuthRepository(IConfiguration configuration, IAlmacenRepository almacenRepository)
         {
             _configuration = configuration;
+            _almacenRepository = almacenRepository;
         }
 
         public async Task<SapAuthResponse> AuthenticateWithSapB1Async()
@@ -70,34 +73,25 @@ namespace Data.Implementation
                             string inputHash = PasswordHelper.HashPassword(password, storedSalt);
                             if (storedHash == inputHash)
                             {
-                                return new Usuario
+                                var usuario = new Usuario
                                 {
                                     Id = (int)reader["Id"],
                                     Nombres = reader["Nombres"].ToString(),
                                     ApellidoPaterno = reader["ApellidoPaterno"].ToString(),
                                     ApellidoMaterno = reader["ApellidoMaterno"].ToString(),
                                     Email = reader["Email"].ToString(),
-                                    UsuarioNombre = username,
+                                    UsuarioNombre = username
                                 };
+
+                                // Obtener los almacenes asignados al usuario
+                                usuario.Almacenes = _almacenRepository.ObtenerAlmacenesPorUsuario(usuario.Id);
+                                
+                                return usuario;
                             }
                         }
                     }
                     return null;
                 }
-                //SqlCommand cmd = new SqlCommand(query, connection);
-                //cmd.Parameters.AddWithValue("@Username", username);
-
-                //await connection.OpenAsync();
-                //SqlDataReader reader = await cmd.ExecuteReaderAsync();
-
-                //if (reader.Read())
-                //{
-                //    string storedHash = reader["PasswordHash"].ToString();
-                //    string storedSalt = reader["PasswordSalt"].ToString();
-                //    string inputHash = PasswordHelper.HashPassword(password, storedSalt);
-                //    return storedHash == inputHash;
-                //}
-                //return false;
             }
         }
     }

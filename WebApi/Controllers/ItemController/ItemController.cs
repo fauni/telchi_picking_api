@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Core.Entities;
+using Core.Entities.Items;
 using Core.Entities.Ventas;
 using Core.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -35,6 +36,24 @@ namespace WebApi.Controllers.ItemController
             _response.Resultado = result;
             _response.StatusCode = System.Net.HttpStatusCode.OK;
             return Ok(itemsDto);
+        }
+
+        [HttpGet("GetItems")]
+        public async Task<IActionResult> GetItems([FromQuery] string whsCode)
+        {
+            if (string.IsNullOrEmpty(whsCode))
+            {
+                return BadRequest("El código del almacén es obligatorio.");
+            }
+            try
+            {
+                List<ItemWhs> items = await _itemRepository.GetItemsByWarehouseAsync(whsCode);
+                return Ok(items);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error al obtener los items: {ex.Message}");
+            }
         }
     }
 }

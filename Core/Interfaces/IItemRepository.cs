@@ -10,5 +10,7 @@ namespace Core.Interfaces
     public interface IItemRepository
     {
         Task<List<Item>> GetAll(String sessionID, int top);
+
+        Task<List<ItemWhs>> GetItemsByWarehouseAsync(string whsCode);
     }
 }

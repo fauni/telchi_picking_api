@@ -19,6 +19,7 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IJwtTokenRepository, JwtTokenRepository>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IAlmacenRepository, AlmacenRepository>();
 
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -27,6 +28,7 @@ builder.Services.AddScoped<IDetalleDocumentoRepository, DetalleDocumentoReposito
 
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+builder.Services.AddScoped<IConteoRepository, ConteoRepository>();
 
 // Configurar autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

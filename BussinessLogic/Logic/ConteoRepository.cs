@@ -1,4 +1,5 @@
 ﻿using Core.Entities.Conteos;
+using Core.Entities.Login;
 using Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -473,6 +474,245 @@ namespace BussinessLogic.Logic
             }
         }
 
+        public async Task<bool> ActualizarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
 
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Paso 1: Obtener la cantidad contada actual y la cantidad esperada
+                        decimal cantidadContadaAnterior = 0;
+                        decimal cantidadEsperada = 0;
+
+                        string selectSql = "SELECT CantidadContada, CantidadDisponible FROM DetalleConteo WHERE Id = @IdDetalle";
+                        using (SqlCommand selectCommand = new SqlCommand(selectSql, connection, transaction))
+                        {
+                            selectCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            using (var reader = await selectCommand.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    cantidadContadaAnterior = (decimal)reader["CantidadContada"];
+                                    cantidadEsperada = (decimal)reader["CantidadDisponible"];
+                                }
+                                else
+                                {
+                                    return false; // Si no se encuentra el detalle, retornar false
+                                }
+                            }
+                        }
+
+                        // Calcular la nueva cantidad contada
+                        decimal nuevaCantidad = cantidadContadaAnterior + cantidadAgregada;
+
+                        // Determinar el nuevo estado
+                        string nuevoEstado = nuevaCantidad >= cantidadEsperada ? "Completado" : "En Proceso";
+
+
+                        // Paso 2: Actualizar la cantidad contada en DetalleDocumentos
+                        string updateSql = "UPDATE DetalleConteo SET CantidadContada = @NuevaCantidad, Estado = @Estado WHERE Id = @IdDetalle";
+                        using (SqlCommand updateCommand = new SqlCommand(updateSql, connection, transaction))
+                        {
+                            updateCommand.Parameters.AddWithValue("@NuevaCantidad", nuevaCantidad);
+                            updateCommand.Parameters.AddWithValue("@Estado", nuevoEstado);
+                            updateCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            await updateCommand.ExecuteNonQueryAsync(); // Revisar la diferencia con ExecuteScalarAsync
+                        }
+
+                        // Paso 3: Insertar un registro en ConteoItems
+                        string insertSql = "INSERT INTO ConteoItemsInventario(IdDetalleConteo, Usuario, FechaHoraConteo, CantidadContada, CantidadContadaAnterior, CantidadAgregada)" +
+                        "VALUES(@IdDetalle, @Usuario, @FechaHoraConteo, @CantidadContada, @CantidadContadaAnterior, @CantidadAgregada)";
+                        using (SqlCommand insertCommand = new SqlCommand(insertSql, connection, transaction))
+                        {
+                            insertCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            insertCommand.Parameters.AddWithValue("@Usuario", usuario);
+                            insertCommand.Parameters.AddWithValue("@FechaHoraConteo", DateTime.Now);
+                            insertCommand.Parameters.AddWithValue("@CantidadContada", nuevaCantidad);
+                            insertCommand.Parameters.AddWithValue("@CantidadContadaAnterior", cantidadContadaAnterior);
+                            insertCommand.Parameters.AddWithValue("@CantidadAgregada", cantidadAgregada);
+                            await insertCommand.ExecuteNonQueryAsync();
+                        }
+
+                        // Confirmar transacción
+                        transaction.Commit();
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw ex;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reinicia la cantidad contada de un item se actualiza el estado del conteo y detalle del conteo ademas se agrega un registro en conteo inventario
+        /// </summary>
+        /// <param name="idDetalle"></param>
+        /// <param name="cantidadAgregada"></param>
+        /// <param name="usuario"></param>
+        /// <returns></returns>
+        public async Task<bool> ReiniciarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Paso 1: Obtener la cantidad contada actual y la cantidad esperada
+                        decimal cantidadContadaAnterior = 0;
+                        decimal cantidadEsperada = 0;
+
+                        string selectSql = "SELECT CantidadContada, CantidadDisponible FROM DetalleConteo WHERE Id = @IdDetalle";
+                        using (SqlCommand selectCommand = new SqlCommand(selectSql, connection, transaction))
+                        {
+                            selectCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            using (var reader = await selectCommand.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    cantidadContadaAnterior = (decimal)reader["CantidadContada"];
+                                    cantidadEsperada = (decimal)reader["CantidadDisponible"];
+                                }
+                                else
+                                {
+                                    return false; // Si no se encuentra el detalle, retornar false
+                                }
+                            }
+                        }
+
+                        // Calcular la nueva cantidad contada
+                        decimal nuevaCantidad = 0;// cantidadContadaAnterior + cantidadAgregada;
+
+                        // Determinar el nuevo estado
+                        string nuevoEstado = "Pendiente";// nuevaCantidad >= cantidadEsperada ? "Completado" : "En Proceso";
+
+
+                        // Paso 2: Actualizar la cantidad contada en DetalleDocumentos
+                        string updateSql = "UPDATE DetalleConteo SET CantidadContada = @NuevaCantidad, Estado = @Estado WHERE Id = @IdDetalle";
+                        using (SqlCommand updateCommand = new SqlCommand(updateSql, connection, transaction))
+                        {
+                            updateCommand.Parameters.AddWithValue("@NuevaCantidad", nuevaCantidad);
+                            updateCommand.Parameters.AddWithValue("@Estado", nuevoEstado);
+                            updateCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            await updateCommand.ExecuteNonQueryAsync(); // Revisar la diferencia con ExecuteScalarAsync
+                        }
+
+                        // Paso 3: Insertar un registro en ConteoItems
+                        string insertSql = "INSERT INTO ConteoItemsInventario(IdDetalleConteo, Usuario, FechaHoraConteo, CantidadContada, CantidadContadaAnterior, CantidadAgregada)" +
+                        "VALUES(@IdDetalle, @Usuario, @FechaHoraConteo, @CantidadContada, @CantidadContadaAnterior, @CantidadAgregada)";
+                        using (SqlCommand insertCommand = new SqlCommand(insertSql, connection, transaction))
+                        {
+                            insertCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            insertCommand.Parameters.AddWithValue("@Usuario", usuario);
+                            insertCommand.Parameters.AddWithValue("@FechaHoraConteo", DateTime.Now);
+                            insertCommand.Parameters.AddWithValue("@CantidadContada", nuevaCantidad);
+                            insertCommand.Parameters.AddWithValue("@CantidadContadaAnterior", cantidadContadaAnterior);
+                            insertCommand.Parameters.AddWithValue("@CantidadAgregada", cantidadAgregada);
+                            await insertCommand.ExecuteNonQueryAsync();
+                        }
+
+                        // Confirmar transacción
+                        transaction.Commit();
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw ex;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Obtiene el id de conteo por el id detalle
+        /// </summary>
+        /// <param name="idDetalle"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+
+        public async Task<int> ObtenerIdConteoPorDetalleAsync(int idDetalle)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                string query = "SELECT ConteoId FROM DetalleConteo WHERE Id = @IdDetalle";
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@IdDetalle", idDetalle);
+
+                await connection.OpenAsync();
+                var result = await command.ExecuteScalarAsync();
+                if (result != null)
+                {
+                    return Convert.ToInt32(result);
+                } else
+                {
+                    throw new Exception("No se encontró un documento para el detalle especificado.");
+                }
+            }
+        }
+
+        public async Task ActualizarEstadoDocumentoAsync(int conteoId)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                // Paso 1: Obtener los estados únicos de los detalles del documento
+                string query = "SELECT DISTINCT Estado FROM DetalleConteo WHERE ConteoId = @ConteoId";
+                var estados = new HashSet<string>();
+
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@ConteoId", conteoId);
+                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            estados.Add(reader["Estado"].ToString());
+                        }
+                    }
+                }
+
+                // Paso 2: Determinar el estado del documento basado en los estados de detalle
+                string estadoDocumento;
+
+                if (estados.Contains("Pendiente") && estados.Contains("Completado"))
+                {
+                    // En Proceso (indica que tiene ambos estados)
+                    estadoDocumento = "En Proceso"; 
+                }
+                else if (estados.Count == 1 && estados.Contains("Completado"))
+                {
+                    estadoDocumento = "Finalizado"; // Todos los detalles están completados
+                }
+                else if (estados.Contains("En Proceso"))
+                {
+                    estadoDocumento = "En Proceso";
+                }
+                else
+                {
+                    estadoDocumento = "Pendiente"; // Solo tiene detalles pendientes
+                }
+
+                // Paso 3: Actualizar el estado del documento y la fecha de modificación
+                string updateQuery = "UPDATE Conteo SET Estado = @Estado, FechaFinalizacion = @FechaFinalizacion WHERE Id = @IdDocumento";
+                using (SqlCommand updateCommand = new SqlCommand(updateQuery, connection))
+                {
+                    updateCommand.Parameters.AddWithValue("@Estado", estadoDocumento);
+                    updateCommand.Parameters.AddWithValue("@FechaFinalizacion", DateTime.Now);
+                    updateCommand.Parameters.AddWithValue("@IdDocumento", conteoId);
+                    await updateCommand.ExecuteNonQueryAsync();
+                }
+            }
+        }
     }
 }

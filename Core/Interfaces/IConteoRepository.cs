@@ -21,5 +21,12 @@ namespace Core.Interfaces
 
         Task<bool> DeleteConteoAsync(int conteoId);
         Task<int> RegistrarConteoItemAsync(int detalleConteoId, string usuario, decimal cantidadAgregada);
+
+        Task<bool> ActualizarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario);
+        Task<bool> ReiniciarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario);
+
+        Task ActualizarEstadoDocumentoAsync(int idDocumento);
+
+        Task<int> ObtenerIdConteoPorDetalleAsync(int idDetalle);
     }
 }

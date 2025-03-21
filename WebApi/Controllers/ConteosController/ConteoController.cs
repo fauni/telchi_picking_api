@@ -1,5 +1,6 @@
 ﻿using Core.Entities;
 using Core.Entities.Conteos;
+using Core.Entities.Picking;
 using Core.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -258,6 +259,87 @@ namespace WebApi.Controllers.ConteosController
                 _response.ErrorMessages = new List<string> { ex.Message };
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
+        }
+
+        [HttpPut("detalle/{idDetalle}/actualizar-cantidad")]
+        public async Task<ApiResponse> ActualizarCantidadContada(int idDetalle, [FromBody] ActualizarCantidadRequest request)
+        {
+            var response = new ApiResponse();
+            if (request == null || request.CantidadAgregada < 0 || string.IsNullOrEmpty(request.Usuario))
+            {
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { "Los datos de la solicitud no son válidos" };
+                return response;
+            }
+
+            try
+            {
+                var resultado = await _conteoRepository.ActualizarCantidadContadaAsync(idDetalle, request.CantidadAgregada, request.Usuario);
+                if (!resultado)
+                {
+                    response.StatusCode = HttpStatusCode.NotFound;
+                    response.IsSuccessful = false;
+                    response.ErrorMessages = new List<string> { "Detalle de documento no encontrado para actualizar" };
+                } else
+                {
+                    // Obtener el ID del conteo asociado al detalle
+                    int conteoId = await _conteoRepository.ObtenerIdConteoPorDetalleAsync(idDetalle);
+
+                    await _conteoRepository.ActualizarEstadoDocumentoAsync(conteoId);
+                    response.StatusCode = HttpStatusCode.OK;
+                    response.IsSuccessful = true;
+                    response.Resultado = new { Message = "Cantidad contada actualizada correctamente" };
+                }
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { ex.Message };
+            }
+            return response;
+        }
+
+        [HttpPut("detalle/{idDetalle}/reiniciar-cantidad")]
+        public async Task<ApiResponse> ReiniciarCantidadContada(int idDetalle, [FromBody] ActualizarCantidadRequest request)
+        {
+            var response = new ApiResponse();
+            if (request == null || request.CantidadAgregada < 0 || string.IsNullOrEmpty(request.Usuario))
+            {
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { "Los datos de la solicitud no son válidos" };
+                return response;
+            }
+
+            try
+            {
+                var resultado = await _conteoRepository.ReiniciarCantidadContadaAsync(idDetalle, request.CantidadAgregada, request.Usuario);
+                if (!resultado)
+                {
+                    response.StatusCode = HttpStatusCode.NotFound;
+                    response.IsSuccessful = false;
+                    response.ErrorMessages = new List<string> { "Detalle de documento no encontrado para actualizar" };
+                }
+                else
+                {
+                    // Obtener el ID del conteo asociado al detalle
+                    int conteoId = await _conteoRepository.ObtenerIdConteoPorDetalleAsync(idDetalle);
+
+                    await _conteoRepository.ActualizarEstadoDocumentoAsync(conteoId);
+                    response.StatusCode = HttpStatusCode.OK;
+                    response.IsSuccessful = true;
+                    response.Resultado = new { Message = "Cantidad contada actualizada correctamente" };
+                }
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { ex.Message };
+            }
+            return response;
         }
 
         /// <summary>

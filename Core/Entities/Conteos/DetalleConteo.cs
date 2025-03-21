@@ -20,8 +20,8 @@ namespace Core.Entities.Conteos
         public decimal CantidadContada { get; set; }  // Cantidad contada en el conteo
         public string Estado { get; set; }  // Estado del detalle (Pendiente, Completado, En Proceso)
 
-        // Relación con la tabla Conteo
-        public virtual Conteo Conteo { get; set; }
+        // Propiedad adicional para incluir información de ConteoItemsInventario
+        // public ConteoItemsInventario ConteoItemsInventario { get; set; }
     }
 
 }

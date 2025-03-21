@@ -3,6 +3,7 @@ using BussinessLogic.Logic;
 using Core.Entities;
 using Core.Entities.Picking;
 using Core.Interfaces;
+using Data.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -16,14 +17,17 @@ namespace WebApi.Controllers.PickingController
         private readonly IDocumentoRepository _repository;
         private readonly IDetalleDocumentoRepository _detalleDocumentoRepository;
         private readonly IOrderRepository _orderRepository; // Inyectar IOrdenRepository
+        private readonly ISolicitudTrasladoRepository _solicitudTrasladoRepository;
         private readonly IMapper _mapper;
         protected ApiResponse _response;
 
-        public DocumentoController(IDocumentoRepository repository, IDetalleDocumentoRepository detalleDocumentoRepository, IOrderRepository orderRepository, IMapper mapper)
+        public DocumentoController(IDocumentoRepository repository, IDetalleDocumentoRepository detalleDocumentoRepository, 
+            IOrderRepository orderRepository, ISolicitudTrasladoRepository solicitudTrasladoRepository, IMapper mapper)
         {
             _repository = repository;
             _detalleDocumentoRepository = detalleDocumentoRepository;
             _orderRepository = orderRepository;
+            _solicitudTrasladoRepository = solicitudTrasladoRepository;
             _mapper = mapper;
             _response = new ApiResponse();
         }
@@ -136,6 +140,40 @@ namespace WebApi.Controllers.PickingController
                 _response.Resultado = new { DocumentId = documentId };
                 return CreatedAtAction(nameof(GetDocumentById), new { id = documentId, tipoDocumento }, _response);
             } catch (Exception ex)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccessful = false;
+                _response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+            }
+        }
+
+        [HttpPost("crear-solicitud-desde-sap")]
+        public async Task<IActionResult> CreateDocumentSolicitudFromSAP([FromQuery] int docEntry, [FromHeader] string sessionID)
+        {
+            string tipo_documento = "solicitud_traslado";
+            try
+            {
+                // Obtener la orden desde SAP B1 usando el OrderRepository
+                var solicitud = _solicitudTrasladoRepository.GetByID(docEntry);
+                if (solicitud == null)
+                {
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    _response.IsSuccessful = false;
+                    _response.ErrorMessages = new List<string> { "Solicitud no encontrada en SAP B1" };
+                    return NotFound(_response);
+                }
+
+                // Crear el documento en la base de datos usando DocumentoRepository
+                int documentId = await _repository.CreateDocumentFromSolicitudAsync(solicitud);
+
+                _response.StatusCode = HttpStatusCode.Created;
+                _response.IsSuccessful = true;
+                _response.Resultado = new { DocumentId = documentId };
+                // return CreatedAtAction(nameof(GetDocumentById), new { id = solicitud.DocNum, tipo_documento }, _response);
+                return StatusCode(StatusCodes.Status201Created, _response);
+            }
+            catch (Exception ex)
             {
                 _response.StatusCode = HttpStatusCode.NotFound;
                 _response.IsSuccessful = false;

@@ -211,6 +211,89 @@ namespace BussinessLogic.Logic
             }
         }
 
+        /// <summary>
+        /// Reiniciar la Cantidad Contada de un detalle de documento a 0.
+        /// </summary>
+        /// <param name="idDetalle"></param>
+        /// <param name="cantidadAgregada"></param>
+        /// <param name="usuario"></param>
+        /// <returns></returns>
+        public async Task<bool> ReiniciarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Paso 1: Obtener la cantidad contada actual y la cantidad esperada
+                        decimal cantidadContadaAnterior = 0;
+                        decimal cantidadEsperada = 0;
+
+                        string selectSql = "SELECT CantidadContada, CantidadEsperada FROM DetalleDocumento WHERE IdDetalle = @IdDetalle";
+                        using (SqlCommand selectCommand = new SqlCommand(selectSql, connection, transaction))
+                        {
+                            selectCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            using (var reader = await selectCommand.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    cantidadContadaAnterior = (decimal)reader["CantidadContada"];
+                                    cantidadEsperada = (decimal)reader["CantidadEsperada"];
+                                }
+                                else
+                                {
+                                    return false; // Si no se encuentra el detalle, retornar false
+                                }
+                            }
+                        }
+
+                        // Calcular la nueva cantidad contada
+                        decimal nuevaCantidad = 0; // cantidadContadaAnterior + cantidadAgregada;
+
+                        // Determinar el nuevo estado
+                        string nuevoEstado = "Pendiente";// nuevaCantidad >= cantidadEsperada ? "Completado" : "En Progreso";
+
+
+                        // Paso 2: Actualizar la cantidad contada en DetalleDocumentos
+                        string updateSql = "UPDATE DetalleDocumento SET CantidadContada = @NuevaCantidad, Estado = @Estado WHERE IdDetalle = @IdDetalle";
+                        using (SqlCommand updateCommand = new SqlCommand(updateSql, connection, transaction))
+                        {
+                            updateCommand.Parameters.AddWithValue("@NuevaCantidad", nuevaCantidad);
+                            updateCommand.Parameters.AddWithValue("@Estado", nuevoEstado);
+                            updateCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            await updateCommand.ExecuteNonQueryAsync(); // Revisar la diferencia con ExecuteScalarAsync
+                        }
+
+                        // Paso 3: Insertar un registro en ConteoItems
+                        string insertSql = "INSERT INTO ConteoItems (IdDetalle, Usuario, FechaHoraConteo, CantidadContada, CantidadContadaAnterior, CantidadAgregada) " +
+                                   "VALUES (@IdDetalle, @Usuario, @FechaHoraConteo, @CantidadContada, @CantidadContadaAnterior, @CantidadAgregada)";
+                        using (SqlCommand insertCommand = new SqlCommand(insertSql, connection, transaction))
+                        {
+                            insertCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            insertCommand.Parameters.AddWithValue("@Usuario", usuario);
+                            insertCommand.Parameters.AddWithValue("@FechaHoraConteo", DateTime.Now);
+                            insertCommand.Parameters.AddWithValue("@CantidadContada", nuevaCantidad);
+                            insertCommand.Parameters.AddWithValue("@CantidadContadaAnterior", cantidadContadaAnterior);
+                            insertCommand.Parameters.AddWithValue("@CantidadAgregada", cantidadAgregada);
+                            await insertCommand.ExecuteNonQueryAsync();
+                        }
+
+                        // Confirmar transacción
+                        transaction.Commit();
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw ex;
+                    }
+                }
+            }
+        }
+
         public async Task<int> ObtenerIdDocumentoPorDetalleAsync(int idDetalle)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))

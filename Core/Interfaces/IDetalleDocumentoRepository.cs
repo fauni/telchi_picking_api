@@ -26,6 +26,8 @@ namespace Core.Interfaces
         // Metodo que actualiza la cantidad contada en la tabla detalle de documento e inserta el registro en conteo items
         Task<bool> ActualizarCantidadContadaAsync(int idDetalle, decimal nuevaCantidad, string usuario);
 
+        Task<bool> ReiniciarCantidadContadaAsync(int idDetalle, decimal nuevaCantidad, string usuario);
+
         Task<int> ObtenerIdDocumentoPorDetalleAsync(int idDetalle);
     }
 }

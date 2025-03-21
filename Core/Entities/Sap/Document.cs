@@ -16,4 +16,9 @@ namespace Core.Entities.Sap
     {
         public List<DocumentLine> DocumentLines { get; set; }
     }
+
+    public class DocumentSolicitudTraslado
+    {
+        public List<DocumentLine> StockTransferLines { get; set; }
+    }
 }

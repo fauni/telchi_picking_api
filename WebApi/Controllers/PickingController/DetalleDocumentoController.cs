@@ -66,6 +66,55 @@ namespace WebApi.Controllers.PickingController
             return response;
         }
 
+
+        // Endpoint para reiniciar la cantidad contada
+        [HttpPut("detalle/{idDetalle}/reiniciar-cantidad")]
+        public async Task<ApiResponse> ReiniciarCantidadContada(int idDetalle, [FromBody] ActualizarCantidadRequest request)
+        {
+            var response = new ApiResponse();
+
+            if (request == null || request.CantidadAgregada < 0 || string.IsNullOrEmpty(request.Usuario))
+            {
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { "Los datos de la solicitud no son válidos" };
+                return response;
+            }
+
+            try
+            {
+                var resultado = await _detalleDocumentoRepository.ReiniciarCantidadContadaAsync(idDetalle, request.CantidadAgregada, request.Usuario);
+
+                if (!resultado)
+                {
+                    response.StatusCode = HttpStatusCode.NotFound;
+                    response.IsSuccessful = false;
+                    response.ErrorMessages = new List<string> { "Detalle de documento no encontrado para reiniciar" };
+                }
+                else
+                {
+                    // Obtener el IdDocumento asociado al idDetalle
+                    int idDocumento = await _detalleDocumentoRepository.ObtenerIdDocumentoPorDetalleAsync(idDetalle);
+
+                    // Llamar a ActualizarEstadoDocumentoAsync para actualizar el estado del documento
+                    await _documentoRepository.ActualizarEstadoDocumentoAsync(idDocumento);
+
+                    response.StatusCode = HttpStatusCode.OK;
+                    response.IsSuccessful = true;
+                    response.Resultado = new { Message = "Cantidad contada fue reiniciada y registrada en el historial con éxito" };
+                }
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.IsSuccessful = false;
+                response.ErrorMessages = new List<string> { ex.Message };
+            }
+
+            return response;
+        }
+
+
         // Endpoint para insertar un nuevo detalle
         [HttpPost("detalle")]
         public async Task<ApiResponse> InsertDetalleDocumento([FromBody] DetalleDocumento detalle)

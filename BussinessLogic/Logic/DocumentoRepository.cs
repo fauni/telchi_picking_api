@@ -1,5 +1,6 @@
 ﻿using Core.Entities.Picking;
 using Core.Entities.Sap;
+using Core.Entities.SolicitudTraslado;
 using Core.Entities.Ventas;
 using Core.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -10,6 +11,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -64,7 +66,10 @@ namespace BussinessLogic.Logic
             {
                 url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices({docEntry})";
             }
-            else 
+            else if(tipoDocumento == "solicitud_traslado")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/InventoryTransferRequests({docEntry})";
+            } else
             {
                 // TODO: Es necesario completar los métodos 
                 url = _configuration["SapCredentials:Url"] + $"/Invoices({docEntry})"; // Aqui la url para transferencias completar
@@ -80,18 +85,35 @@ namespace BussinessLogic.Logic
                 using (HttpClient httpClient = new HttpClient(handler))
                 {
                     httpClient.DefaultRequestHeaders.Add("Cookie", $"B1SESSION={sessionID}");
+                    string json;
 
-                    Core.Entities.Sap.Document document = new Core.Entities.Sap.Document
+                    if(tipoDocumento == "solicitud_traslado")
                     {
-                        DocumentLines = detalle.Select(d => new Core.Entities.Sap.DocumentLine
+                        var documentSolicitud = new DocumentSolicitudTraslado
                         {
-                            LineNum = d.NumeroLinea,
-                            U_PCK_CantContada = (int)d.TotalCantidadContada,
-                            U_PCK_ContUsuarios = d.UsuariosParticipantes
-                        }).ToList()
-                    };
-
-                    var json = JsonConvert.SerializeObject(document);
+                            StockTransferLines = detalle.Select(d => new Core.Entities.Sap.DocumentLine
+                            {
+                                LineNum = d.NumeroLinea,
+                                U_PCK_CantContada = (int)d.TotalCantidadContada,
+                                U_PCK_ContUsuarios = d.UsuariosParticipantes
+                            }).ToList()
+                        };
+                        json = JsonConvert.SerializeObject(documentSolicitud);
+                    }
+                    else
+                    {
+                        var document = new Core.Entities.Sap.Document
+                        {
+                            DocumentLines = detalle.Select(d => new Core.Entities.Sap.DocumentLine
+                            {
+                                LineNum = d.NumeroLinea,
+                                U_PCK_CantContada = (int)d.TotalCantidadContada,
+                                U_PCK_ContUsuarios = d.UsuariosParticipantes
+                            }).ToList()
+                        };
+                        json = JsonConvert.SerializeObject(document);
+                    }
+                    
                     HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
                     HttpResponseMessage response = await httpClient.PatchAsync(url, content);
@@ -201,6 +223,72 @@ namespace BussinessLogic.Logic
             }
         }
 
+        public async Task ActualizaItemsDocumentoConteo(Order order, string tipoDocumento)
+        {
+            string doc_num = order.DocNum.ToString() ?? String.Empty;
+             List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
+
+            // Obtenemos el Id del documento
+            int idDocumento;
+            
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                using (SqlCommand getIdCommand = new SqlCommand("SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento", connection))
+                {
+                    getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
+                    object result = await getIdCommand.ExecuteScalarAsync();
+                    idDocumento = result != null ? Convert.ToInt32(result) : 0;
+                }
+            }
+
+            if (idDocumento > 0) 
+            {
+                using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    await connection.OpenAsync();
+                    using (SqlTransaction transaction = connection.BeginTransaction())
+                    {
+
+                        try
+                        {
+                            foreach (var detalleOrder in order.DocumentLines)
+                            {
+                                var existe = detalleDocumento.Any(d => d.CodigoItem == detalleOrder.ItemCode);
+                                if (!existe)
+                                {
+                                    string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
+                                        "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+
+                                    SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+                                    commandDetalle.Parameters.AddWithValue("@IdDocumento", idDocumento);
+                                    commandDetalle.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
+                                    commandDetalle.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
+                                    commandDetalle.Parameters.AddWithValue("@DescripcionItem", detalleOrder.ItemDescription);
+                                    commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+                                    commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
+                                    commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
+                                    commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+                                    {
+                                        Value = detalleOrder.BarCode ?? (object)DBNull.Value
+                                    }); // Maneja el nulo
+
+                                    await commandDetalle.ExecuteNonQueryAsync();
+                                }
+                            }
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                    }
+                }
+            }
+
+            
+        }
         public async Task<int> CreateDocumentFromOrderAsync(Order order, string tipoDocumento)
         {
             using(SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -242,6 +330,66 @@ namespace BussinessLogic.Logic
                             commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
                             {
                                 Value = line.BarCode ?? (object)DBNull.Value
+                            }); // Maneja el nulo
+
+                            await commandDetalle.ExecuteNonQueryAsync();
+                        }
+
+                        // Confirmar transacción
+                        transaction.Commit();
+                        return documentId; // Devuelve el ID del documento creado
+
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public async Task<int> CreateDocumentFromSolicitudAsync(OWTQ solicitud)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Paso 1: Insertar el registro en la tabla documento
+                        string sqlDocumento = "INSERT INTO Documento (TipoDocumento, NumeroDocumento, FechaInicio, EstadoConteo, DocEntry) " +
+                                      "VALUES (@TipoDocumento, @NumeroDocumento, @FechaInicio, @EstadoConteo, @DocEntry); " +
+                                      "SELECT SCOPE_IDENTITY();";
+
+                        SqlCommand commandDocumento = new SqlCommand(sqlDocumento, connection, transaction);
+                        commandDocumento.Parameters.AddWithValue("@TipoDocumento", "solicitud_traslado");
+                        commandDocumento.Parameters.AddWithValue("@NumeroDocumento", solicitud.DocNum);
+                        commandDocumento.Parameters.AddWithValue("@FechaInicio", DateTime.Now); // Fecha actual de creación
+                        commandDocumento.Parameters.AddWithValue("@EstadoConteo", 'P'); // Estado inicial 'Pendiente'
+                        commandDocumento.Parameters.AddWithValue("@DocEntry", solicitud.DocEntry);
+
+                        var result = await commandDocumento.ExecuteScalarAsync();
+                        int documentId = Convert.ToInt32(result);
+
+                        // Paso 2: Insertar cada línea en la tabla Detalle Documento
+                        string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
+                                    "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+
+                        foreach (var line in solicitud.Lines)
+                        {
+                            SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+                            commandDetalle.Parameters.AddWithValue("@IdDocumento", documentId);
+                            commandDetalle.Parameters.AddWithValue("@NumeroLinea", line.LineNum);
+                            commandDetalle.Parameters.AddWithValue("@CodigoItem", line.ItemCode);
+                            commandDetalle.Parameters.AddWithValue("@DescripcionItem", line.Dscription);
+                            commandDetalle.Parameters.AddWithValue("@CantidadEsperada", line.Quantity);
+                            commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
+                            commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
+                            commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+                            {
+                                Value = line.CodeBars ?? (object)DBNull.Value
                             }); // Maneja el nulo
 
                             await commandDetalle.ExecuteNonQueryAsync();
@@ -354,7 +502,7 @@ namespace BussinessLogic.Logic
         public async Task<List<DetalleDocumentoToSap>> ObtenerDetalleDocumentoPorNumeroAsync(string numeroDocumento, string tipoDocumento)
         {
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+                        {
                 string query = @"SELECT 
                     d.DocEntry,
                     d.NumeroDocumento,

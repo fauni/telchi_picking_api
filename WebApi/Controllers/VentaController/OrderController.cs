@@ -82,6 +82,7 @@ namespace WebApi.Controllers.VentaController
             var sessionID = Request.Headers["SessionID"];
             var order = await _respository.GetOrderByDocNum(sessionID, docNum, tipoDocumento);
 
+             await _documentoRepository.ActualizaItemsDocumentoConteo(order, tipoDocumento);
             // Verifica si la orden fue encontrada
             if(order == null)
             {

@@ -35,7 +35,7 @@ namespace WebApi.Controllers.PickingController
 
             try
             {
-                var resultado = await _detalleDocumentoRepository.ActualizarCantidadContadaAsync(idDetalle, request.CantidadAgregada, request.Usuario);
+                var resultado = await _detalleDocumentoRepository.ActualizarCantidadContadaAsync(idDetalle, request.CantidadAgregada, request.Usuario, request.FechaVencimiento);
 
                 if (!resultado)
                 {

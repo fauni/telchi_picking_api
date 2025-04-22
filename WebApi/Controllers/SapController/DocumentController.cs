@@ -84,5 +84,45 @@ namespace WebApi.Controllers.SapController
             }
 
         }
+
+        [HttpPatch("ActualizarConteoDocumentoTransferenciaStock")]
+        public async Task<IActionResult> ActualizaConteoDocumentoTransferenciaStockSap([FromHeader] string sessionID, [FromQuery] int docEntry, [FromQuery] string tipoDocumento)
+        {
+            if (string.IsNullOrWhiteSpace(sessionID))
+            {
+                _response.IsSuccessful = false;
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.ErrorMessages = new List<string> { "El ID de sesión es requerido" };
+                return BadRequest(_response);
+            }
+            try
+            {
+                // Actualizar el conteo en SAP
+                var resultado = await _documentoRepository.GuardarConteoTransferenciaStock(sessionID, docEntry, tipoDocumento);
+
+                if (resultado.Exito)
+                {
+                    _response.IsSuccessful = true;
+                    _response.StatusCode = HttpStatusCode.OK;
+                    _response.Resultado = new { Message = resultado.Mensaje };
+                    return Ok(_response);
+                }
+                else
+                {
+                    _response.IsSuccessful = false;
+                    _response.StatusCode = HttpStatusCode.InternalServerError;
+                    _response.ErrorMessages = new List<string> { resultado.Mensaje };
+                    return StatusCode(500, _response);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccessful = false;
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.ErrorMessages = new List<string> { $"Error interno del servidor: {ex.Message}" };
+                return StatusCode(500, _response);
+            }
+        }
     }
 }

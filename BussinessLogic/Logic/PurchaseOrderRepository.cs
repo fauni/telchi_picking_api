@@ -109,9 +109,17 @@ namespace BussinessLogic.Logic
             {
                 url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices?$filter=DocNum eq {docNum}"; // Obtener documentos de factura de compra
             }
+            else if (tipoDocumento == "solicitud_traslado")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/InventoryTransferRequests?$filter=DocNum eq {docNum}";
+            }
+            else if (tipoDocumento == "orden_compra")
+            {
+                url = _configuration["SapCredentials:Url"] + $"/PurchaseOrders?$filter=DocNum eq {docNum}";
+            }
             else
             {
-                // TODO: Agregar metodos para los demas tipos de documento
+                url = _configuration["SapCredentials:Url"] + $"/DeliveryNotes?$filter=DocNum eq {docNum}";
             }
 
             try

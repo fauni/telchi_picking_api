@@ -43,5 +43,13 @@ namespace WebApi.Controllers.UsuarioController
                 return StatusCode(500, "Error al registrar el usuario.");
             }
         }
+
+        [HttpPost]
+        [Route("cambiar-clave")]
+        public IActionResult CambiarClave([FromBody] LoginModel usuario)
+        {
+            _usuarioRepository.ResetearClave(usuario);
+            return Ok();
+        }
     }
 }

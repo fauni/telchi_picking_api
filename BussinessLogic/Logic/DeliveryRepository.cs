@@ -11,17 +11,16 @@ using System.Threading.Tasks;
 
 namespace BussinessLogic.Logic
 {
-    public class OrderRepository : IOrderRepository
+    public class DeliveryRepository : IDeliveryRepository
     {
         private readonly IConfiguration _configuration;
-        public OrderRepository(IConfiguration configuration)
+        public DeliveryRepository(IConfiguration configuration)
         {
             _configuration = configuration;
         }
-
         public async Task<List<Order>> GetAll(string sessionID, int top, int skip)
         {
-            string url = _configuration["SapCredentials:Url"] + $"/Orders?$filter=DocumentStatus eq 'bost_Open'&$orderby=DocEntry desc&$top={top}&$skip={skip}";
+            string url = _configuration["SapCredentials:Url"] + $"/DeliveryNotes?$filter=DocumentStatus eq 'bost_Open'&$orderby=DocEntry desc&$top={top}&$skip={skip}";
             try
             {
                 HttpClientHandler handler = new HttpClientHandler();
@@ -44,7 +43,8 @@ namespace BussinessLogic.Logic
                     }
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 if (ex is ApiException apiEx)
                 {
                     throw apiEx;
@@ -52,11 +52,9 @@ namespace BussinessLogic.Logic
                 throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
-
         public async Task<List<Order>> GetForText(string sessionID, string search)
         {
-            string url = _configuration["SapCredentials:Url"] + @$"/Orders?$filter=contains(DocNum, '{search}') or contains(DocDate, '{search}') or contains(CardCode, '{search}') or contains(CardName, '{search}')&$orderby=DocEntry desc";
-
+            string url = _configuration["SapCredentials:Url"] + @$"/DeliveryNotes?$filter=contains(DocNum, '{search}') or contains(DocDate, '{search}') or contains(CardCode, '{search}') or contains(CardName, '{search}')&$orderby=DocEntry desc";
             try
             {
                 HttpClientHandler handler = new HttpClientHandler();
@@ -66,7 +64,6 @@ namespace BussinessLogic.Logic
                 {
                     httpClient.DefaultRequestHeaders.Add("Cookie", String.Format("B1SESSION={0}", sessionID));
                     HttpResponseMessage response = await httpClient.GetAsync(url);
-
                     if (response.IsSuccessStatusCode)
                     {
                         string responseBody = await response.Content.ReadAsStringAsync();
@@ -89,35 +86,9 @@ namespace BussinessLogic.Logic
                 throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
-
-        public async Task<Order> GetOrderByDocNum(string sessionID, string docNum, string tipoDocumento)
+        public async Task<Order> GetDeliveryByDocNum(string sessionID, string docNum, string tipoDocumento)
         {
-            string url = "";
-            if (tipoDocumento == "orden_venta")
-            {
-                url = _configuration["SapCredentials:Url"] + $"/Orders?$filter=DocNum eq {docNum}";
-            }
-            else if (tipoDocumento == "factura")
-            {
-                url = _configuration["SapCredentials:Url"] + $"/Invoices?$filter=DocNum eq {docNum}"; // Obtener Documentos por Factura
-            }
-            else if (tipoDocumento == "factura_compra")
-            {
-                url = _configuration["SapCredentials:Url"] + $"/PurchaseInvoices?$filter=DocNum eq {docNum}"; // Obtener documentos de factura de compra
-            }
-            else if (tipoDocumento == "solicitud_traslado")
-            {
-                url = _configuration["SapCredentials:Url"] + $"/InventoryTransferRequests?$filter=DocNum eq {docNum}";
-            }
-            else if (tipoDocumento == "orden_compra")
-            {
-                url = _configuration["SapCredentials:Url"] + $"/PurchaseOrders?$filter=DocNum eq {docNum}";
-            }
-            else
-            {
-                url = _configuration["SapCredentials:Url"] + $"/DeliveryNotes?$filter=DocNum eq {docNum}";
-            }
-
+            string url = _configuration["SapCredentials:Url"] + $"/DeliveryNotes?$filter=DocNum eq {docNum}";
             try
             {
                 HttpClientHandler handler = new HttpClientHandler();
@@ -125,26 +96,13 @@ namespace BussinessLogic.Logic
 
                 using (HttpClient httpClient = new HttpClient(handler))
                 {
-                    // Configurar la sesión en la cabecera de la solicitud
-                    httpClient.DefaultRequestHeaders.Add("Cookie", $"B1SESSION={sessionID}");
-
-                    // Enviar la solicitud GET
+                    httpClient.DefaultRequestHeaders.Add("Cookie", String.Format("B1SESSION={0}", sessionID));
                     HttpResponseMessage response = await httpClient.GetAsync(url);
-                     
                     if (response.IsSuccessStatusCode)
                     {
                         string responseBody = await response.Content.ReadAsStringAsync();
                         var result = JsonConvert.DeserializeObject<ResponseOrder>(responseBody);
-
-                        // Verificar si se obtuvo al menos una orden
-                        if (result.value != null && result.value.Count > 0)
-                        {
-                            return result.value.First();
-                        }
-                        else
-                        {
-                            throw new ApiException((int)response.StatusCode,"No se encontró una orden con el DocNum especificado.");
-                        }
+                        return result.value.FirstOrDefault();
                     }
                     else
                     {
@@ -162,5 +120,7 @@ namespace BussinessLogic.Logic
                 throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
             }
         }
+
+        
     }
 }

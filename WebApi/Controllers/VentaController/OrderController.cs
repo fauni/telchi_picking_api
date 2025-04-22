@@ -15,16 +15,27 @@ namespace WebApi.Controllers.VentaController
         IOrderRepository _respository;
         IDocumentoRepository _documentoRepository;
         IDetalleDocumentoRepository _detalleDocumentoRepository;
+        private readonly IReporteRepository _reporteRepository;
+        private readonly IItemRepository _itemRepository;
         private readonly IMapper _mapper;
         protected ApiResponse _response;
 
-        public OrderController(IOrderRepository repository, IMapper mapper, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository)
+        public OrderController(
+            IOrderRepository repository, 
+            IMapper mapper, 
+            IDocumentoRepository documentoRepository, 
+            IDetalleDocumentoRepository detalleDocumentoRepository,
+            IReporteRepository reporteRepository,
+            IItemRepository itemRepository
+        )
         {
             _respository = repository;
             _mapper = mapper;
             _response = new ApiResponse();
             _documentoRepository = documentoRepository;
             _detalleDocumentoRepository = detalleDocumentoRepository;
+            _reporteRepository = reporteRepository;
+            _itemRepository = itemRepository;
         }
 
         [HttpGet]
@@ -110,6 +121,11 @@ namespace WebApi.Controllers.VentaController
                 {
                     var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
                     item_orden.DetalleDocumento = detalleRelacionado;
+                    if (!String.IsNullOrEmpty(sessionID))
+                    {
+                        var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
+                        item_orden.BarCode = item.BarCode;
+                    }
                 }
             }
 
@@ -117,6 +133,21 @@ namespace WebApi.Controllers.VentaController
             _response.Resultado = orderDto;
             _response.StatusCode = HttpStatusCode.OK;
             return Ok(_response);
+        }
+
+        [HttpGet("GenerarReporte")]
+        public async Task<IActionResult> GenerarReporte([FromQuery] string docNum, string tipoDocumento)
+        {
+            try
+            {
+                var sessionID = Request.Headers["SessionID"];
+                var pdfStream = _reporteRepository.GenerarReporte(sessionID, docNum, tipoDocumento);
+                return File(pdfStream.ToArray(), "application/pdf", "Reporte.pdf");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500);
+            }
         }
     }
 }

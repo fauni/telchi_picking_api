@@ -10,12 +10,12 @@ using System.Threading.Tasks;
 
 namespace Data.Implementation
 {
-    public class SolicitudTrasladoRepository : ISolicitudTrasladoRepository
+    public class TransferenciaStockRepository: ITransferenciaStockRepository
     {
         IConfiguration _configuration;
         string _connectionString;
 
-        public SolicitudTrasladoRepository(IConfiguration configuration)
+        public TransferenciaStockRepository(IConfiguration configuration)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("SapHanaConnection");
@@ -33,7 +33,7 @@ namespace Data.Implementation
 
                     int offset = (pageNumber - 1) * pageSize;
                     string sql = $"SELECT \"DocEntry\", \"DocNum\", \"Series\",\"DocDate\", \"DocDueDate\", \"Comments\", \"JrnlMemo\", \"Filler\",\"ToWhsCode\", \"DocStatus\" " +
-                        $"FROM \"TELCHI\".\"OWTQ\" order by \"DocEntry\" desc LIMIT {pageSize} OFFSET {offset}";
+                        $"FROM \"TELCHI\".\"OWTR\" order by \"DocEntry\" desc LIMIT {pageSize} OFFSET {offset}";
 
                     using (HanaCommand command = new HanaCommand(sql, connection))
                     {
@@ -58,7 +58,7 @@ namespace Data.Implementation
 
                                 // Obtener las líneas para la solicitud actual 
                                 string sqlLines = "SELECT \"DocEntry\", \"LineNum\", \"LineStatus\", \"ItemCode\", \"Dscription\", \"CodeBars\", \"Quantity\", \"FromWhsCod\", \"WhsCode\", \"U_PCK_CantContada\", \"U_PCK_ContUsuarios\" " +
-                                "FROM \"TELCHI\".\"WTQ1\" " +
+                                "FROM \"TELCHI\".\"WTR1\" " +
                                 $"WHERE \"DocEntry\" = {solicitud.DocEntry}";
 
                                 using (HanaCommand commandLines = new HanaCommand(sqlLines, connection))
@@ -96,14 +96,14 @@ namespace Data.Implementation
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                // Manejo de excepciones
+                throw new Exception("Error al obtener las solicitudes de transferencia de stock", ex);
             }
         }
 
         public List<OWTQ> GetAllSearch(int pageNumber, int pageSize, string? search = null, DateTime? docDate = null)
         {
-            List<OWTQ> solicitudes = new List<OWTQ>();
-
+            List<OWTQ> transferencias = new List<OWTQ>();
             try
             {
                 using (HanaConnection connection = new HanaConnection(_connectionString))
@@ -114,7 +114,7 @@ namespace Data.Implementation
 
                     // Construcción dinámica de la consulta con filtros opcionales
                     string sql = "SELECT \"DocEntry\", \"DocNum\", \"Series\", \"DocDate\", \"DocDueDate\", \"Comments\", \"JrnlMemo\", \"Filler\", \"ToWhsCode\", \"DocStatus\" " +
-                                 "FROM \"TELCHI\".\"OWTQ\" ";
+                                 "FROM \"TELCHI\".\"OWTR\" ";
 
                     List<string> filters = new List<string>();
 
@@ -152,7 +152,7 @@ namespace Data.Implementation
 
                                 // Obtener las líneas para la solicitud actual 
                                 string sqlLines = "SELECT \"DocEntry\", \"LineNum\", \"LineStatus\", \"ItemCode\", \"Dscription\", \"CodeBars\", \"Quantity\", \"FromWhsCod\", \"WhsCode\", \"U_PCK_CantContada\", \"U_PCK_ContUsuarios\" " +
-                                "FROM \"TELCHI\".\"WTQ1\" " +
+                                "FROM \"TELCHI\".\"WTR1\" " +
                                 $"WHERE \"DocEntry\" = {solicitud.DocEntry}";
 
                                 using (HanaCommand commandLines = new HanaCommand(sqlLines, connection))
@@ -180,13 +180,13 @@ namespace Data.Implementation
                                     }
                                 }
 
-                                solicitudes.Add(solicitud);
+                                transferencias.Add(solicitud);
                             }
                         }
                     }
                 }
 
-                return solicitudes;
+                return transferencias;
             }
             catch (Exception ex)
             {
@@ -195,26 +195,24 @@ namespace Data.Implementation
         }
 
         public OWTQ GetByID(int id)
-         {
-            OWTQ solicitud = null;
-
+        {
+            OWTQ transferencia = null;
             using (HanaConnection connection = new HanaConnection(_connectionString))
             {
                 connection.Open();
-                // string sql = "SELECT \"DocEntry\", \"DocNum\", \"Series\",\"DocDate\", \"DocDueDate\", \"Comments\", \"JrnlMemo\", \"Filler\",\"ToWhsCode\", \"DocStatus\" FROM \"TELCHI_QAS_EC\".\"OWTQ\" WHERE \"DocEntry\" = @DocEntry";
-                string sql = $"SELECT \"DocEntry\", \"DocNum\", \"Series\", \"DocDate\", \"DocDueDate\", \"Comments\", \"JrnlMemo\", \"Filler\", \"ToWhsCode\", \"DocStatus\" " +
-                    $"FROM \"TELCHI\".\"OWTQ\" " +
-                    $"WHERE \"DocEntry\" = {id}";
+                string sql = "SELECT \"DocEntry\", \"DocNum\", \"Series\", \"DocDate\", \"DocDueDate\", \"Comments\", \"JrnlMemo\", \"Filler\", \"ToWhsCode\", \"DocStatus\" " +
+                             "FROM \"TELCHI\".\"OWTR\" " +
+                             $"WHERE \"DocEntry\" = {id}";
 
-                using (HanaCommand command = new HanaCommand(sql, connection)) 
-                { 
+                using (HanaCommand command = new HanaCommand(sql, connection))
+                {
                     // command.Parameters.Add("@DocEntry", HanaDbType.Integer, 11).Value = id;
 
                     using (HanaDataReader reader = command.ExecuteReader())
                     {
                         if (reader.Read())
                         {
-                            solicitud = new OWTQ
+                            transferencia = new OWTQ
                             {
                                 DocEntry = reader.GetInt32(reader.GetOrdinal("DocEntry")),
                                 DocNum = reader.GetInt32(reader.GetOrdinal("DocNum")),
@@ -231,18 +229,18 @@ namespace Data.Implementation
                     }
                 }
 
-                if (solicitud != null)
+                if (transferencia != null)
                 {
                     string sqlLines = "SELECT \"DocEntry\", \"LineNum\", \"LineStatus\", \"ItemCode\", \"Dscription\", \"CodeBars\", \"Quantity\", \"FromWhsCod\", \"WhsCode\", \"U_PCK_CantContada\", \"U_PCK_ContUsuarios\" " +
-                        "FROM \"TELCHI\".\"WTQ1\" " +
+                        "FROM \"TELCHI\".\"WTR1\" " +
                         $"WHERE \"DocEntry\" = {id}";
 
                     using (HanaCommand commandLines = new HanaCommand(sqlLines, connection))
                     {
-                        using(HanaDataReader readerLines = commandLines.ExecuteReader())
+                        using (HanaDataReader readerLines = commandLines.ExecuteReader())
                         {
                             // Aseguramos que solicitud.Lines esté inicializado antes del bucle
-                            solicitud.Lines ??= new List<WTQ1>(); 
+                            transferencia.Lines ??= new List<WTQ1>();
                             while (readerLines.Read())
                             {
                                 WTQ1 line = new WTQ1();
@@ -257,13 +255,13 @@ namespace Data.Implementation
                                 line.WhsCode = readerLines.GetString(readerLines.GetOrdinal("WhsCode"));
                                 line.U_PCK_CantContada = readerLines.IsDBNull(readerLines.GetOrdinal("U_PCK_CantContada")) ? (decimal?)null : readerLines.GetDecimal(readerLines.GetOrdinal("U_PCK_CantContada"));
                                 line.U_PCK_ContUsuarios = readerLines.IsDBNull(readerLines.GetOrdinal("U_PCK_ContUsuarios")) ? null : readerLines.GetString(readerLines.GetOrdinal("U_PCK_ContUsuarios"));
-                                solicitud.Lines.Add(line);
+                                transferencia.Lines.Add(line);
                             }
                         }
                     }
                 }
             }
-            return solicitud;
+            return transferencia;
         }
     }
 }

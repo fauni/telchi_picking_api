@@ -136,7 +136,7 @@ namespace BussinessLogic.Logic
             }
         }
 
-        public async Task<bool> ActualizarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario)
+        public async Task<bool> ActualizarCantidadContadaAsync(int idDetalle, decimal cantidadAgregada, string usuario, DateTime? fechaVencimiento)
         {
             using(SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
@@ -185,8 +185,8 @@ namespace BussinessLogic.Logic
                         }
 
                         // Paso 3: Insertar un registro en ConteoItems
-                        string insertSql = "INSERT INTO ConteoItems (IdDetalle, Usuario, FechaHoraConteo, CantidadContada, CantidadContadaAnterior, CantidadAgregada) " +
-                                   "VALUES (@IdDetalle, @Usuario, @FechaHoraConteo, @CantidadContada, @CantidadContadaAnterior, @CantidadAgregada)";
+                        string insertSql = "INSERT INTO ConteoItems (IdDetalle, Usuario, FechaHoraConteo, CantidadContada, CantidadContadaAnterior, CantidadAgregada, FechaVencimiento) " +
+                                   "VALUES (@IdDetalle, @Usuario, @FechaHoraConteo, @CantidadContada, @CantidadContadaAnterior, @CantidadAgregada, @FechaVencimiento)";
                         using (SqlCommand insertCommand = new SqlCommand(insertSql, connection, transaction))
                         {
                             insertCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
@@ -195,6 +195,7 @@ namespace BussinessLogic.Logic
                             insertCommand.Parameters.AddWithValue("@CantidadContada", nuevaCantidad);
                             insertCommand.Parameters.AddWithValue("@CantidadContadaAnterior", cantidadContadaAnterior);
                             insertCommand.Parameters.AddWithValue("@CantidadAgregada", cantidadAgregada);
+                            insertCommand.Parameters.AddWithValue("@FechaVencimiento", fechaVencimiento == null ? DBNull.Value : (object)fechaVencimiento);
                             await insertCommand.ExecuteNonQueryAsync();
                         }
 

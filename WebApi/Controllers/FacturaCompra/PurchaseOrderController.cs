@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using BussinessLogic.Logic;
 using Core.Entities;
 using Core.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -15,16 +16,18 @@ namespace WebApi.Controllers.FacturaCompra
         IPurchaseOrderRepository _purchaseOrderRepository;
         IDocumentoRepository _documentoRepository;
         IDetalleDocumentoRepository _detalleDocumentoRepository;
+        IItemRepository _itemRepository;
         private readonly IMapper _mapper;
         protected ApiResponse _response;
 
-        public PurchaseOrderController(IPurchaseOrderRepository repository, IMapper mapper, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository)
+        public PurchaseOrderController(IPurchaseOrderRepository repository, IMapper mapper, IDocumentoRepository documentoRepository, IDetalleDocumentoRepository detalleDocumentoRepository, IItemRepository itemRepository)
         {
             _purchaseOrderRepository = repository;
             _mapper = mapper;
             _response = new ApiResponse();
             _documentoRepository = documentoRepository;
             _detalleDocumentoRepository = detalleDocumentoRepository;
+            _itemRepository = itemRepository;
         }
 
         [HttpGet]
@@ -59,6 +62,11 @@ namespace WebApi.Controllers.FacturaCompra
                         {
                             var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
                             item_orden.DetalleDocumento = detalleRelacionado;
+                            if (!String.IsNullOrEmpty(sessionID))
+                            {
+                                var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
+                                item_orden.BarCode = item.BarCode;
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -108,6 +116,11 @@ namespace WebApi.Controllers.FacturaCompra
                 {
                     var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
                     item_orden.DetalleDocumento = detalleRelacionado;
+                    if (!String.IsNullOrEmpty(sessionID))
+                    {
+                        var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
+                        item_orden.BarCode = item.BarCode;
+                    }
                 }
             }
 

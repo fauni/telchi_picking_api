@@ -1,35 +1,34 @@
 ﻿using BussinessLogic.Logic;
 using Core.Entities;
-using Core.Entities.Ventas;
+using Core.Entities.Items;
 using Core.Interfaces;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
-using WebApi.DTOs;
 
 namespace WebApi.Controllers.TransferenciaController
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class SolicitudTrasladoController : ControllerBase
+    public class TransferenciaStockController : ControllerBase
     {
-        private readonly ISolicitudTrasladoRepository _solicitudTrasladoRepository;
+        private readonly ITransferenciaStockRepository _transferenciaStockRepository;
         private readonly IDocumentoRepository _documentoRepository;
         private readonly IDetalleDocumentoRepository _detalleDocumentoRepository;
         private readonly IReporteTransferenciaStockRepository _reporteRepository;
         private readonly IItemRepository _itemRepository;
         private readonly ApiResponse _response;
 
-        public SolicitudTrasladoController(
-            ISolicitudTrasladoRepository solicitudTrasladoRepository, 
-            IDocumentoRepository documentoRepository, 
+        public TransferenciaStockController(
+            ITransferenciaStockRepository transferenciaStockRepository,
+            IDocumentoRepository documentoRepository,
             IDetalleDocumentoRepository detalleDocumentoRepository,
             IReporteTransferenciaStockRepository reporteRepository,
             IItemRepository itemRepository
             )
         {
-            _solicitudTrasladoRepository = solicitudTrasladoRepository;
+            _transferenciaStockRepository = transferenciaStockRepository;
             _documentoRepository = documentoRepository;
             _detalleDocumentoRepository = detalleDocumentoRepository;
             _reporteRepository = reporteRepository;
@@ -38,12 +37,12 @@ namespace WebApi.Controllers.TransferenciaController
         }
 
         [HttpGet]
-        public async Task<IActionResult> ObtenerSolicitudTransferencia(int pageNumber = 1, int pageSize = 10, string? search = null, DateTime? docDate = null)
+        public async Task<IActionResult> ObtenerTransferenciaStock(int pageNumber = 1, int pageSize = 10, string? search = null, DateTime? docDate = null)
         {
-            var solicitudes  = _solicitudTrasladoRepository.GetAllSearch(pageNumber, pageSize, search, docDate);
-            foreach (var solicitud in solicitudes)
+            var transferencias = _transferenciaStockRepository.GetAllSearch(pageNumber, pageSize, search, docDate);
+            foreach (var transferencia in transferencias)
             {
-                var documento = await _documentoRepository.GetDocumentByDocNumAsync(solicitud.DocNum.ToString(), "solicitud_traslado");
+                var documento = await _documentoRepository.GetDocumentByDocNumAsync(transferencia.DocNum.ToString(), "transferencia_stock");
 
                 // Mapear el documento a DocumentoDto si existe
                 if (documento != null)
@@ -51,9 +50,9 @@ namespace WebApi.Controllers.TransferenciaController
                     // Obtener los detalles del documento
                     var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
                     documento.Detalles = detalles;
-                    solicitud.Documento = documento;
+                    transferencia.Documento = documento;
 
-                    foreach (var item_orden in solicitud.Lines)
+                    foreach (var item_orden in transferencia.Lines)
                     {
                         try
                         {
@@ -64,49 +63,45 @@ namespace WebApi.Controllers.TransferenciaController
                         {
                             throw new Exception(ex.Message);
                         }
-
                     }
                 }
             }
-
             _response.IsSuccessful = true;
             _response.StatusCode = HttpStatusCode.OK;
-            _response.Resultado = solicitudes;
+            _response.Resultado = transferencias;
             return Ok(_response);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> ObtenerSolicitudTransferenciaById(int id)
+        public async Task<IActionResult> ObtenerTransferenciaStockById(int id)
         {
             var sessionID = Request.Headers["SessionID"];
-            var solicitud = _solicitudTrasladoRepository.GetByID(id);
 
-            await _documentoRepository.ActualizaItemsDocumentoConteoSolicitud(solicitud, "solicitud_traslado");
-            if(solicitud == null)
+            var transferencia = _transferenciaStockRepository.GetByID(id);
+            await _documentoRepository.ActualizaItemsDocumentoConteoTransferenciaStock(transferencia, "transferencia_stock");
+            if(transferencia == null)
             {
                 _response.IsSuccessful = false;
                 _response.StatusCode = HttpStatusCode.NotFound;
-                _response.ErrorMessages.Add("No se encontró la solicitud de traslado");
+                _response.ErrorMessages.Add("Transferencia no encontrada.");
                 return NotFound(_response);
             }
 
-            var documento = await _documentoRepository.GetDocumentByDocNumAsync(solicitud.DocNum.ToString(), "solicitud_traslado");
-
+            var documento = await _documentoRepository.GetDocumentByDocNumAsync(transferencia.DocNum.ToString(), "transferencia_stock");
             // Mapear el documento a DocumentoDto si existe
             if (documento != null)
             {
                 // Obtener los detalles del documento
                 var detalles = await _detalleDocumentoRepository.GetDetallesByDocumentoIdAsync(documento.IdDocumento);
                 documento.Detalles = detalles;
-                solicitud.Documento = documento;
+                transferencia.Documento = documento;
 
-                foreach (var item_orden in solicitud.Lines)
-                {
+                foreach (var item_orden in transferencia.Lines)
+                {   
                     try
                     {
                         var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
                         item_orden.DetalleDocumento = detalleRelacionado;
-
                         if (!String.IsNullOrEmpty(sessionID))
                         {
                             var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
@@ -117,13 +112,11 @@ namespace WebApi.Controllers.TransferenciaController
                     {
                         throw new Exception(ex.Message);
                     }
-
                 }
             }
-
             _response.IsSuccessful = true;
             _response.StatusCode = HttpStatusCode.OK;
-            _response.Resultado = solicitud;
+            _response.Resultado = transferencia;
             return Ok(_response);
         }
 

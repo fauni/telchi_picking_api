@@ -10,5 +10,6 @@ namespace Core.Entities.Picking
     {
         public decimal CantidadAgregada { get; set; }
         public string Usuario { get; set; }
+        public DateTime? FechaVencimiento { get; set; }
     }
 }

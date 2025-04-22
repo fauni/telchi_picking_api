@@ -12,5 +12,7 @@ namespace Core.Interfaces
         Task<List<Item>> GetAll(String sessionID, int top);
 
         Task<List<ItemWhs>> GetItemsByWarehouseAsync(string whsCode);
+
+        Task<Item> GetByCode(String sessionID, string code);
     }
 }

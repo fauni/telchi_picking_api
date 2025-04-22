@@ -9,6 +9,7 @@ namespace Data.Interfaces
 {
     public interface IUsuarioRepository
     {
+        void ResetearClave(LoginModel usuario);
         bool InsertarUsuario(Usuario usuario);
         List<Usuario> ObtenerUsuarios();
     }

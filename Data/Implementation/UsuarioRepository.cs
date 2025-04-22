@@ -19,6 +19,89 @@ namespace Data.Implementation
         {
             _configuration = configuration;
         }
+        public void ResetearClave(LoginModel usuario)
+        {
+            // Validación básica del parámetro de entrada
+            if (usuario == null || string.IsNullOrWhiteSpace(usuario.Username))
+            {
+                throw new ArgumentException("El usuario no puede estar vacío");
+            }
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    // Primero buscamos si el usuario existe y obtenemos sus datos
+                    Usuario usuarioEncontrado = null;
+                    string selectQuery = @"
+                        SELECT Id, Nombres, ApellidoPaterno, ApellidoMaterno, Email 
+                        FROM Usuarios 
+                        WHERE Usuario = @Username 
+                        AND EstaActivo = 1 
+                        AND EstaBloqueado = 0";
+
+                    conn.Open();
+                    using (SqlCommand selectCommand = new SqlCommand(selectQuery, conn))
+                    {
+                        selectCommand.Parameters.AddWithValue("@Username", usuario.Username);
+
+                        using (SqlDataReader reader = selectCommand.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                usuarioEncontrado = new Usuario
+                                {
+                                    Id = (int)reader["Id"],
+                                    Nombres = reader["Nombres"].ToString(),
+                                    ApellidoPaterno = reader["ApellidoPaterno"].ToString(),
+                                    ApellidoMaterno = reader["ApellidoMaterno"].ToString(),
+                                    Email = reader["Email"].ToString()
+                                };
+                            }
+                        }
+                    }
+
+                    // Si no encontramos el usuario, lanzamos excepción
+                    if (usuarioEncontrado == null)
+                    {
+                        throw new KeyNotFoundException("Usuario no encontrado o no está activo");
+                    }
+
+                    // Generamos el nuevo salt y hash de la contraseña
+                    string salt = PasswordHelper.GenerateSelt();
+                    string passwordHash = PasswordHelper.HashPassword(usuario.Password, salt);
+
+                    // Actualizamos la contraseña en la base de datos
+                    string updateQuery = @"
+                        UPDATE Usuarios 
+                        SET PasswordHash = @PasswordHash, PasswordSalt = @Salt, FechaModificacion = GETDATE()
+                        WHERE Id = @UserId";
+
+                    using (SqlCommand updateCommand = new SqlCommand(updateQuery, conn))
+                    {
+                        updateCommand.Parameters.AddWithValue("@PasswordHash", passwordHash);
+                        updateCommand.Parameters.AddWithValue("@Salt", salt);
+                        updateCommand.Parameters.AddWithValue("@UserId", usuarioEncontrado.Id);
+
+                        int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                        if (rowsAffected == 0)
+                        {
+                            throw new Exception("No se pudo actualizar la contraseña");
+                        }
+                    }
+
+                    // Aquí podrías agregar el envío de email de notificación
+                    // Ejemplo: _emailService.SendPasswordResetConfirmation(usuarioEncontrado.Email);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Mejor manejo de errores
+                throw new Exception($"Error al resetear la clave: {ex.Message}", ex);
+            }
+        }
+
         public bool InsertarUsuario(Usuario usuario)
         {
             string salt = PasswordHelper.GenerateSelt();

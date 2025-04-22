@@ -80,6 +80,47 @@ namespace BussinessLogic.Logic
             return allItems; // Return the aggregated list of items
         }
 
+        public async Task<Item> GetByCode(string sessionID, string code)
+        {
+            string baseUrl = _configuration["SapCredentials:Url"] + $"/Items('{code}')?$select=ItemCode,ItemName,BarCode";
+            Item item = new Item();
+
+            try
+            {
+                HttpClientHandler handler = new HttpClientHandler();
+                handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+
+                using (HttpClient httpClient = new HttpClient(handler))
+                {
+                    httpClient.DefaultRequestHeaders.Add("Cookie", $"B1SESSION={sessionID}");
+
+                    HttpResponseMessage response = await httpClient.GetAsync(baseUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string responseBody = await response.Content.ReadAsStringAsync();
+                        var result = JsonConvert.DeserializeObject<Item>(responseBody);
+                        item = result;
+                    }
+                    else
+                    {
+                        var errorResponse = await response.Content.ReadAsStringAsync();
+                        throw new ApiException((int)response.StatusCode, errorResponse);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (ex is ApiException apiEx)
+                {
+                    throw apiEx;
+                }
+                throw new ApiException(500, "An unexpected error occurred: " + ex.Message);
+            }
+
+            return item; // Return the aggregated list of items
+        }
+
         public async Task<List<ItemWhs>> GetItemsByWarehouseAsync(string whsCode)
         {
             string connectionString = _configuration.GetConnectionString("SapHanaConnection");
@@ -99,16 +140,18 @@ namespace BussinessLogic.Logic
                         T2.""WhsCode"",
                         T2.""WhsName""
                     FROM 
-                        ""TELCHI_QAS_EC"".""OITM"" T0
+                        ""TELCHI"".""OITM"" T0
                     INNER JOIN 
-                        ""TELCHI_QAS_EC"".""OITW"" T1 ON T0.""ItemCode"" = T1.""ItemCode""
+                        ""TELCHI"".""OITW"" T1 ON T0.""ItemCode"" = T1.""ItemCode""
                     INNER JOIN 
-                        ""TELCHI_QAS_EC"".""OWHS"" T2 ON T1.""WhsCode"" = T2.""WhsCode""
+                        ""TELCHI"".""OWHS"" T2 ON T1.""WhsCode"" = T2.""WhsCode""
                     WHERE 
                         T2.""WhsCode"" = :WhsCode
                     ORDER BY 
                         T0.""ItemCode"";
                 ";
+
+
 
                 using (var command = new HanaCommand(query, connection))
                 {

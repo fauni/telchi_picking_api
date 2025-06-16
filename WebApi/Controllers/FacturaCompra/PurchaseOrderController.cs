@@ -60,7 +60,7 @@ namespace WebApi.Controllers.FacturaCompra
                     {
                         try
                         {
-                            var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                            var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem == item_orden.ItemCode);
                             item_orden.DetalleDocumento = detalleRelacionado;
                             if (!String.IsNullOrEmpty(sessionID))
                             {
@@ -114,13 +114,15 @@ namespace WebApi.Controllers.FacturaCompra
                 orderDto.Documento = documento;
                 foreach (var item_orden in orderDto.DocumentLines)
                 {
-                    var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                    var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem == item_orden.ItemCode);
                     item_orden.DetalleDocumento = detalleRelacionado;
+                    /* 
                     if (!String.IsNullOrEmpty(sessionID))
                     {
                         var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
                         item_orden.BarCode = item.BarCode;
                     }
+                    */
                 }
             }
 

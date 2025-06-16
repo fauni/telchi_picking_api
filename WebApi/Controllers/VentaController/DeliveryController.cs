@@ -68,7 +68,7 @@ namespace WebApi.Controllers.VentaController
                     {
                         try
                         {
-                            var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                            var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem == item_orden.ItemCode);
                             item_orden.DetalleDocumento = detalleRelacionado;
                         }
                         catch (Exception ex)
@@ -116,13 +116,15 @@ namespace WebApi.Controllers.VentaController
                 deliveryDto.Documento = documento;
                 foreach (var item_orden in deliveryDto.DocumentLines)
                 {
-                    var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                    var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem== item_orden.ItemCode);
                     item_orden.DetalleDocumento = detalleRelacionado;
+                    /*
                     if (!String.IsNullOrEmpty(sessionID))
                     {
                         var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
                         item_orden.BarCode = item.BarCode;
                     }
+                    */
                 }
             }
 

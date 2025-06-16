@@ -56,7 +56,7 @@ namespace WebApi.Controllers.TransferenciaController
                     {
                         try
                         {
-                            var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                            var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem == item_orden.ItemCode);
                             item_orden.DetalleDocumento = detalleRelacionado;
                         }
                         catch (Exception ex)
@@ -100,17 +100,20 @@ namespace WebApi.Controllers.TransferenciaController
                 {   
                     try
                     {
-                        var detalleRelacionado = detalles.FirstOrDefault(d => d.NumeroLinea == item_orden.LineNum);
+                        var detalleRelacionado = detalles.FirstOrDefault(d => d.CodigoItem == item_orden.ItemCode);
                         item_orden.DetalleDocumento = detalleRelacionado;
-                        if (!String.IsNullOrEmpty(sessionID))
+                        /*if (!String.IsNullOrEmpty(sessionID))
                         {
                             var item = _itemRepository.GetByCode(sessionID, item_orden.ItemCode).Result;
                             item_orden.CodeBars = item.BarCode;
-                        }
+                        }*/
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception(ex.Message);
+                        _response.IsSuccessful = false;
+                        _response.StatusCode = HttpStatusCode.Unauthorized;
+                        _response.ErrorMessages = new List<string> { "Sesión de SAP inválida" };
+                        return Unauthorized(_response);
                     }
                 }
             }

@@ -12,7 +12,7 @@ namespace Core.Entities.Reportes
         public string DescripcionItem { get; set; }
         public decimal CantidadEsperada { get; set; }
         public decimal CantidadContada { get; set; }
-        public DateTime FechaVencimiento { get; set; }
+        public DateTime? FechaVencimiento { get; set; }
         public decimal CantidadAgregada { get; set; }
         public string Usuario { get; set; }
     }

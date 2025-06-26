@@ -9,6 +9,7 @@ namespace Core.Entities.Sap
     public class DocumentLine
     {
         public int LineNum { get; set; }
+        public string ItemCode { get; set; }
         public int U_PCK_CantContada { get; set; }
         public string U_PCK_ContUsuarios { get; set; }
     }

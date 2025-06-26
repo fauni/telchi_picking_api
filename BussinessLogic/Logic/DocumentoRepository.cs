@@ -166,6 +166,7 @@ namespace BussinessLogic.Logic
                             StockTransferLines = detalle.Select(d => new Core.Entities.Sap.DocumentLine
                             {
                                 LineNum = d.NumeroLinea,
+                                ItemCode = d.CodigoItem,
                                 U_PCK_CantContada = (int)d.TotalCantidadContada,
                                 U_PCK_ContUsuarios = d.UsuariosParticipantes
                             }).ToList()
@@ -179,6 +180,7 @@ namespace BussinessLogic.Logic
                             DocumentLines = detalle.Select(d => new Core.Entities.Sap.DocumentLine
                             {
                                 LineNum = d.NumeroLinea,
+                                ItemCode = d.CodigoItem,
                                 U_PCK_CantContada = (int)d.TotalCantidadContada,
                                 U_PCK_ContUsuarios = d.UsuariosParticipantes
                             }).ToList()
@@ -297,91 +299,19 @@ namespace BussinessLogic.Logic
 
         public async Task ActualizaItemsDocumentoConteo(Order order, string tipoDocumento)
         {
-            string doc_num = order.DocNum.ToString() ?? String.Empty;
-             List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
+            string doc_num = order.DocNum.ToString() ?? string.Empty;
+            List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
 
-            // Obtenemos el Id del documento
             int idDocumento;
-            
+
             using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
-                using (SqlCommand getIdCommand = new SqlCommand($"SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento and TipoDocumento = @TipoDocumento", connection))
+
+                using (SqlCommand getIdCommand = new SqlCommand("SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento AND TipoDocumento = @TipoDocumento", connection))
                 {
                     getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
                     getIdCommand.Parameters.AddWithValue("@TipoDocumento", tipoDocumento);
-                    object result = await getIdCommand.ExecuteScalarAsync();
-                    idDocumento = result != null ? Convert.ToInt32(result) : 0;
-                }
-            }
-
-            if (idDocumento > 0) 
-            {
-                using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-                {
-                    await connection.OpenAsync();
-                    using (SqlTransaction transaction = connection.BeginTransaction())
-                    {
-
-                        try
-                        {
-                            foreach (var detalleOrder in order.DocumentLines)
-                            {
-                                var existe = detalleDocumento.Any(d => d.CodigoItem == detalleOrder.ItemCode);
-                                if (!existe)
-                                {
-                                    string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
-                                        "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
-
-                                    SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
-                                    commandDetalle.Parameters.AddWithValue("@IdDocumento", idDocumento);
-                                    commandDetalle.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
-                                    commandDetalle.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
-                                    commandDetalle.Parameters.AddWithValue("@DescripcionItem", detalleOrder.ItemDescription);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
-                                    commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
-                                    commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
-                                    {
-                                        Value = detalleOrder.BarCode ?? (object)DBNull.Value
-                                    }); // Maneja el nulo
-
-                                    await commandDetalle.ExecuteNonQueryAsync();
-                                } else
-                                {
-                                    var detalle = detalleDocumento.Find(d => d.CodigoItem == detalleOrder.ItemCode);
-                                    string sqlDetalle = $"UPDATE DetalleDocumento SET CantidadEsperada = @CantidadEsperada WHERE IdDetalle = {detalle.IdDetalle}";
-                                    SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
-                                    await commandDetalle.ExecuteNonQueryAsync();
-                                }
-                            }
-                            transaction.Commit();
-                        }
-                        catch (Exception ex)
-                        {
-                            transaction.Rollback();
-                            throw;
-                        }
-                    }
-                }
-            }   
-        }
-
-        public async Task ActualizaItemsDocumentoConteoSolicitud(OWTQ solicitud, string tipoDocumento)
-        {
-            string doc_num = solicitud.DocNum.ToString() ?? String.Empty;
-            List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
-
-            // Obtenemos el Id del documento
-            int idDocumento;
-
-            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
-                using (SqlCommand getIdCommand = new SqlCommand("SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento and TipoDocumento = 'solicitud_traslado'", connection))
-                {
-                    getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
                     object result = await getIdCommand.ExecuteScalarAsync();
                     idDocumento = result != null ? Convert.ToInt32(result) : 0;
                 }
@@ -394,52 +324,378 @@ namespace BussinessLogic.Logic
                     await connection.OpenAsync();
                     using (SqlTransaction transaction = connection.BeginTransaction())
                     {
-
                         try
                         {
-                            foreach (var detalleOrder in solicitud.Lines)
+                            await this.EliminarDuplicadosDetalleDocumentoAsync(idDocumento);
+                            // Insertar o actualizar ítems de la orden
+                            foreach (var detalleOrder in order.DocumentLines)
                             {
                                 var existe = detalleDocumento.Any(d => d.CodigoItem == detalleOrder.ItemCode);
                                 if (!existe)
                                 {
-                                    string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
-                                        "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+                                    string insertSql = @"
+                                INSERT INTO DetalleDocumento 
+                                (IdDocumento, NumeroLinea, CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) 
+                                VALUES 
+                                (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
 
-                                    SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
-                                    commandDetalle.Parameters.AddWithValue("@IdDocumento", idDocumento);
-                                    commandDetalle.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
-                                    commandDetalle.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
-                                    commandDetalle.Parameters.AddWithValue("@DescripcionItem", detalleOrder.Dscription);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
-                                    commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
-                                    commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+                                    using (SqlCommand cmd = new SqlCommand(insertSql, connection, transaction))
                                     {
-                                        Value = detalleOrder.CodeBars ?? (object)DBNull.Value
-                                    }); // Maneja el nulo
+                                        cmd.Parameters.AddWithValue("@IdDocumento", idDocumento);
+                                        cmd.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
+                                        cmd.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
+                                        cmd.Parameters.AddWithValue("@DescripcionItem", detalleOrder.ItemDescription ?? string.Empty);
+                                        cmd.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+                                        cmd.Parameters.AddWithValue("@CantidadContada", 0);
+                                        cmd.Parameters.AddWithValue("@Estado", "Pendiente");
+                                        cmd.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+                                        {
+                                            Value = detalleOrder.BarCode ?? (object)DBNull.Value
+                                        });
 
-                                    await commandDetalle.ExecuteNonQueryAsync();
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
                                 }
                                 else
                                 {
                                     var detalle = detalleDocumento.Find(d => d.CodigoItem == detalleOrder.ItemCode);
-                                    string sqlDetalle = $"UPDATE DetalleDocumento SET CantidadEsperada = @CantidadEsperada WHERE IdDetalle = {detalle.IdDetalle}";
-                                    SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
-                                    commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
-                                    await commandDetalle.ExecuteNonQueryAsync();
+                                    string updateSql = "UPDATE DetalleDocumento SET CantidadEsperada = @CantidadEsperada WHERE IdDetalle = @IdDetalle";
+
+                                    using (SqlCommand cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        cmd.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+                                        cmd.Parameters.AddWithValue("@IdDetalle", detalle.IdDetalle);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
                                 }
                             }
+
+                            // 🔥 Eliminar ítems que ya no están en la nueva orden
+                            var codigosNuevos = order.DocumentLines.Select(l => l.ItemCode).ToHashSet();
+                            var codigosActuales = detalleDocumento.Select(d => d.CodigoItem).ToList();
+                            var codigosParaEliminar = codigosActuales.Except(codigosNuevos).ToList();
+
+                            foreach (var codigoEliminar in codigosParaEliminar)
+                            {
+                                var detalleEliminar = detalleDocumento.FirstOrDefault(d => d.CodigoItem == codigoEliminar);
+                                if (detalleEliminar != null)
+                                {
+                                    const string deleteSql = "DELETE FROM DetalleDocumento WHERE IdDetalle = @IdDetalle";
+                                    using (var cmd = new SqlCommand(deleteSql, connection, transaction))
+                                    {
+                                        cmd.Parameters.AddWithValue("@IdDetalle", detalleEliminar.IdDetalle);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                            }
+
                             transaction.Commit();
+                            await ActualizarEstadoDocumentoAsync(idDocumento);
                         }
                         catch (Exception ex)
                         {
                             transaction.Rollback();
-                            throw;
+                            throw new Exception("Error al actualizar ítems del documento de conteo.", ex);
                         }
                     }
                 }
             }
         }
+
+        public async Task EliminarDuplicadosDetalleDocumentoAsync(int idDocumento)
+        {
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Paso 1: Obtener todos los detalles del documento
+                        var detalleDocumento = new List<(int IdDetalle, string CodigoItem)>();
+
+                        using (SqlCommand cmd = new SqlCommand("SELECT IdDetalle, CodigoItem FROM DetalleDocumento WHERE IdDocumento = @IdDocumento", connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@IdDocumento", idDocumento);
+
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    int idDetalle = reader.GetInt32(0);
+                                    string codigoItem = reader.GetString(1);
+                                    detalleDocumento.Add((idDetalle, codigoItem));
+                                }
+                            }
+                        }
+
+                        // Paso 2: Agrupar por CodigoItem y eliminar duplicados
+                        var duplicados = detalleDocumento
+                            .GroupBy(d => d.CodigoItem)
+                            .SelectMany(g => g.Skip(1)) // Conserva el primero, elimina los demás
+                            .ToList();
+
+                        foreach (var dup in duplicados)
+                        {
+                            using (SqlCommand deleteCmd = new SqlCommand("DELETE FROM DetalleDocumento WHERE IdDetalle = @IdDetalle", connection, transaction))
+                            {
+                                deleteCmd.Parameters.AddWithValue("@IdDetalle", dup.IdDetalle);
+                                await deleteCmd.ExecuteNonQueryAsync();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw new Exception("Error al eliminar duplicados en DetalleDocumento.", ex);
+                    }
+                }
+            }
+        }
+
+        //public async Task ActualizaItemsDocumentoConteo(Order order, string tipoDocumento)
+        //{
+        //    string doc_num = order.DocNum.ToString() ?? String.Empty;
+        //     List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
+
+        //    // Obtenemos el Id del documento
+        //    int idDocumento;
+
+        //    using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        using (SqlCommand getIdCommand = new SqlCommand($"SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento and TipoDocumento = @TipoDocumento", connection))
+        //        {
+        //            getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
+        //            getIdCommand.Parameters.AddWithValue("@TipoDocumento", tipoDocumento);
+        //            object result = await getIdCommand.ExecuteScalarAsync();
+        //            idDocumento = result != null ? Convert.ToInt32(result) : 0;
+        //        }
+        //    }
+
+        //    if (idDocumento > 0) 
+        //    {
+        //        using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //        {
+        //            await connection.OpenAsync();
+        //            using (SqlTransaction transaction = connection.BeginTransaction())
+        //            {
+
+        //                try
+        //                {
+        //                    foreach (var detalleOrder in order.DocumentLines)
+        //                    {
+        //                        var existe = detalleDocumento.Any(d => d.CodigoItem == detalleOrder.ItemCode);
+        //                        if (!existe)
+        //                        {
+        //                            string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
+        //                                "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+
+        //                            SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+        //                            commandDetalle.Parameters.AddWithValue("@IdDocumento", idDocumento);
+        //                            commandDetalle.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
+        //                            commandDetalle.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
+        //                            commandDetalle.Parameters.AddWithValue("@DescripcionItem", detalleOrder.ItemDescription);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
+        //                            commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
+        //                            commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+        //                            {
+        //                                Value = detalleOrder.BarCode ?? (object)DBNull.Value
+        //                            }); // Maneja el nulo
+
+        //                            await commandDetalle.ExecuteNonQueryAsync();
+        //                        } else
+        //                        {
+        //                            var detalle = detalleDocumento.Find(d => d.CodigoItem == detalleOrder.ItemCode);
+        //                            string sqlDetalle = $"UPDATE DetalleDocumento SET CantidadEsperada = @CantidadEsperada WHERE IdDetalle = {detalle.IdDetalle}";
+        //                            SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+        //                            await commandDetalle.ExecuteNonQueryAsync();
+        //                        }
+        //                    }
+        //                    transaction.Commit();
+        //                    await ActualizarEstadoDocumentoAsync(idDocumento);
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    transaction.Rollback();
+        //                    throw;
+        //                }
+        //            }
+        //        }
+        //    }   
+        //}
+
+        public async Task ActualizaItemsDocumentoConteoSolicitud(OWTQ solicitud, string tipoDocumento)
+        {
+            string doc_num = solicitud.DocNum.ToString() ?? string.Empty;
+            List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
+
+            int idDocumento = 0;
+
+            using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                using (SqlCommand getIdCommand = new SqlCommand("SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento AND TipoDocumento = 'solicitud_traslado'", connection))
+                {
+                    getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
+                    object result = await getIdCommand.ExecuteScalarAsync();
+                    idDocumento = result != null ? Convert.ToInt32(result) : 0;
+                }
+
+                if (idDocumento > 0)
+                {
+                    using (SqlTransaction transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            var codigosNuevos = solicitud.Lines.Select(l => l.ItemCode).ToHashSet();
+
+                            foreach (var detalleOrder in solicitud.Lines)
+                            {
+                                var existente = detalleDocumento.FirstOrDefault(d => d.CodigoItem == detalleOrder.ItemCode);
+                                if (existente == null)
+                                {
+                                    const string insertSql = @"
+                                INSERT INTO DetalleDocumento 
+                                (IdDocumento, NumeroLinea, CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) 
+                                VALUES 
+                                (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+
+                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    {
+                                        cmd.Parameters.AddWithValue("@IdDocumento", idDocumento);
+                                        cmd.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
+                                        cmd.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
+                                        cmd.Parameters.AddWithValue("@DescripcionItem", detalleOrder.Dscription ?? string.Empty);
+                                        cmd.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+                                        cmd.Parameters.AddWithValue("@CantidadContada", 0);
+                                        cmd.Parameters.AddWithValue("@Estado", "Pendiente");
+                                        cmd.Parameters.AddWithValue("@CodigoBarras", detalleOrder.CodeBars ?? (object)DBNull.Value);
+
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                                else
+                                {
+                                    const string updateSql = @"
+                                UPDATE DetalleDocumento 
+                                SET CantidadEsperada = @CantidadEsperada 
+                                WHERE IdDetalle = @IdDetalle";
+
+                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        cmd.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+                                        cmd.Parameters.AddWithValue("@IdDetalle", existente.IdDetalle);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                            }
+
+                            // 🔥 ELIMINAR los ítems que ya no están en la nueva solicitud
+                            var codigosActuales = detalleDocumento.Select(d => d.CodigoItem).ToList();
+                            var codigosParaEliminar = codigosActuales.Except(codigosNuevos).ToList();
+
+                            foreach (var codigoEliminar in codigosParaEliminar)
+                            {
+                                const string deleteSql = "DELETE FROM DetalleDocumento WHERE IdDocumento = @IdDocumento AND CodigoItem = @CodigoItem";
+                                using (var cmd = new SqlCommand(deleteSql, connection, transaction))
+                                {
+                                    cmd.Parameters.AddWithValue("@IdDocumento", idDocumento);
+                                    cmd.Parameters.AddWithValue("@CodigoItem", codigoEliminar);
+                                    await cmd.ExecuteNonQueryAsync();
+                                }
+                            }
+
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw new Exception("Error en la sincronización de ítems del documento", ex);
+                        }
+                    }
+                }
+            }
+        }
+
+        //public async Task ActualizaItemsDocumentoConteoSolicitud(OWTQ solicitud, string tipoDocumento)
+        //{
+        //    string doc_num = solicitud.DocNum.ToString() ?? String.Empty;
+        //    List<DetalleDocumentoToSap> detalleDocumento = await ObtenerDetalleDocumentoPorNumeroAsync(doc_num, tipoDocumento);
+
+        //    // Obtenemos el Id del documento
+        //    int idDocumento;
+
+        //    using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        using (SqlCommand getIdCommand = new SqlCommand("SELECT IdDocumento FROM Documento WHERE NumeroDocumento = @NumeroDocumento and TipoDocumento = 'solicitud_traslado'", connection))
+        //        {
+        //            getIdCommand.Parameters.AddWithValue("@NumeroDocumento", doc_num);
+        //            object result = await getIdCommand.ExecuteScalarAsync();
+        //            idDocumento = result != null ? Convert.ToInt32(result) : 0;
+        //        }
+        //    }
+
+        //    if (idDocumento > 0)
+        //    {
+        //        using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //        {
+        //            await connection.OpenAsync();
+        //            using (SqlTransaction transaction = connection.BeginTransaction())
+        //            {
+
+        //                try
+        //                {
+        //                    foreach (var detalleOrder in solicitud.Lines)
+        //                    {
+        //                        var existe = detalleDocumento.Any(d => d.CodigoItem == detalleOrder.ItemCode);
+        //                        if (!existe)
+        //                        {
+        //                            string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
+        //                                "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
+
+        //                            SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+        //                            commandDetalle.Parameters.AddWithValue("@IdDocumento", idDocumento);
+        //                            commandDetalle.Parameters.AddWithValue("@NumeroLinea", detalleOrder.LineNum);
+        //                            commandDetalle.Parameters.AddWithValue("@CodigoItem", detalleOrder.ItemCode);
+        //                            commandDetalle.Parameters.AddWithValue("@DescripcionItem", detalleOrder.Dscription);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadContada", 0); // Iniciar en 0
+        //                            commandDetalle.Parameters.AddWithValue("@Estado", "Pendiente"); // Estado inicial 'Pendiente'
+        //                            commandDetalle.Parameters.Add(new SqlParameter("@CodigoBarras", SqlDbType.NVarChar)
+        //                            {
+        //                                Value = detalleOrder.CodeBars ?? (object)DBNull.Value
+        //                            }); // Maneja el nulo
+
+        //                            await commandDetalle.ExecuteNonQueryAsync();
+        //                        }
+        //                        else
+        //                        {
+        //                            var detalle = detalleDocumento.Find(d => d.CodigoItem == detalleOrder.ItemCode);
+        //                            string sqlDetalle = $"UPDATE DetalleDocumento SET CantidadEsperada = @CantidadEsperada WHERE IdDetalle = {detalle.IdDetalle}";
+        //                            SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
+        //                            commandDetalle.Parameters.AddWithValue("@CantidadEsperada", detalleOrder.Quantity);
+        //                            await commandDetalle.ExecuteNonQueryAsync();
+        //                        }
+        //                    }
+        //                    transaction.Commit();
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    transaction.Rollback();
+        //                    throw;
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
 
         public async Task ActualizaItemsDocumentoConteoTransferenciaStock(OWTQ solicitud, string tipoDocumento)
         {
@@ -503,6 +759,7 @@ namespace BussinessLogic.Logic
                                 }
                             }
                             transaction.Commit();
+                            await ActualizarEstadoDocumentoAsync(idDocumento);
                         }
                         catch (Exception ex)
                         {
@@ -661,7 +918,7 @@ namespace BussinessLogic.Logic
                         // Paso 2: Insertar cada línea en la tabla Detalle Documento
                         string sqlDetalle = "INSERT INTO DetalleDocumento (IdDocumento, NumeroLinea ,CodigoItem, DescripcionItem, CantidadEsperada, CantidadContada, Estado, CodigoBarras) " +
                                     "VALUES (@IdDocumento, @NumeroLinea, @CodigoItem, @DescripcionItem, @CantidadEsperada, @CantidadContada, @Estado, @CodigoBarras);";
-
+                        
                         foreach (var line in transferencia.Lines)
                         {
                             SqlCommand commandDetalle = new SqlCommand(sqlDetalle, connection, transaction);
@@ -676,7 +933,6 @@ namespace BussinessLogic.Logic
                             {
                                 Value = line.CodeBars ?? (object)DBNull.Value
                             }); // Maneja el nulo
-
                             await commandDetalle.ExecuteNonQueryAsync();
                         }
 

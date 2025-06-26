@@ -1,4 +1,5 @@
-﻿using Core.Entities.Reportes;
+﻿using Core.Entities.Items;
+using Core.Entities.Reportes;
 using Core.Interfaces;
 using Data.Interfaces;
 using iText.IO.Image;
@@ -38,7 +39,7 @@ namespace BussinessLogic.Logic
             var data = tipoDocumento == "solicitud_traslado" 
                 ? _solicitudTrasladoRepository.GetByID(docEntry)
                 : _transferenciaStockRepository.GetByID(docEntry);
-            var detalle = this.ObtenerDetalle(docEntry, tipoDocumento);
+              var detalle = this.ObtenerDetalle(docEntry, tipoDocumento);
 
             var stream = new MemoryStream();
             using (var writer = new PdfWriter(stream))
@@ -86,7 +87,8 @@ namespace BussinessLogic.Logic
                         // Definir el borde común
                         Border commonBorder = new SolidBorder(1);
                         string formato = "dd/MM/yyyy";
-                        string fechaDocumento = data.DocDate.ToShortDateString();
+                        string fechaDocumento = data.DocDate.ToString("dd/MM/yyyy");
+
 
                         // Añadir la celda de "Código de Cliente" que abarca dos filas
                         Cell fromWhsCell = new Cell(1, 2)
@@ -135,9 +137,9 @@ namespace BussinessLogic.Logic
                             tablaDetalle.AddCell(new Cell().Add(new Paragraph(count.ToString()).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
                             tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.CodigoItem).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
                             tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.DescripcionItem).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
-                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(((DateTime)item.FechaVencimiento).ToShortDateString()).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
-                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.CantidadEsperada.ToString()).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
-                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.CantidadAgregada.ToString()).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
+                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.FechaVencimiento.HasValue? item.FechaVencimiento.Value.ToString("dd/MM/yyyy"): "").SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
+                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.CantidadEsperada.ToString("N2")).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
+                            tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.CantidadAgregada.ToString("N2")).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
                             tablaDetalle.AddCell(new Cell().Add(new Paragraph(item.Usuario).SetFont(fuenteTabla).SetFontSize(tamanoFuenteTabla)));
                         }
 
@@ -169,7 +171,7 @@ namespace BussinessLogic.Logic
                 from Documento T0
                 inner join DetalleDocumento T1 on T0.IdDocumento = T1.IdDocumento
                 inner join ConteoItems T2 ON t2.IdDetalle = T1.IdDetalle
-                where T0.TipoDocumento = '{tipoDocumento}' and T0.DocEntry= '{docEntry}'";
+                where T0.TipoDocumento = '{tipoDocumento}' and T0.DocEntry= '{docEntry}' and T2.CantidadAgregada > 0";
 
             // realizamos la consulta y la obtenemos en un List<DetalleReporte>
             var detalleReporte = new List<DetalleReporte>();
@@ -188,7 +190,7 @@ namespace BussinessLogic.Logic
                                 DescripcionItem = reader["DescripcionItem"].ToString(),
                                 CantidadEsperada = Convert.ToDecimal(reader["CantidadEsperada"]),
                                 CantidadContada = Convert.ToDecimal(reader["CantidadContada"]),
-                                FechaVencimiento = Convert.ToDateTime(reader["FechaVencimiento"]),
+                                FechaVencimiento = reader["FechaVencimiento"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["FechaVencimiento"]),
                                 CantidadAgregada = Convert.ToDecimal(reader["CantidadAgregada"]),
                                 Usuario = reader["Usuario"].ToString()
                             };

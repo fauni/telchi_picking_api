@@ -251,6 +251,14 @@ namespace BussinessLogic.Logic
                             }
                         }
 
+                        // Eliminamos conteos anteriores
+                        string deleteSql = "DELETE FROM ConteoItems WHERE IdDetalle = @IdDetalle";
+                        using (SqlCommand deleteCommand = new SqlCommand(deleteSql, connection, transaction))
+                        {
+                            deleteCommand.Parameters.AddWithValue("@IdDetalle", idDetalle);
+                            await deleteCommand.ExecuteNonQueryAsync();
+                        }
+
                         // Calcular la nueva cantidad contada
                         decimal nuevaCantidad = 0; // cantidadContadaAnterior + cantidadAgregada;
 

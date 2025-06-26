@@ -13,10 +13,10 @@ namespace Core.Interfaces
     public interface IDocumentoRepository
     {
         Task<int> CreateDocumentFromOrderAsync(Order order, string tipoDocumnento);
-
         Task<int> CreateDocumentFromSolicitudAsync(OWTQ solicitud);
         Task<int> CreateDocumentFromTransferenciaAsync(OWTQ transferencia);
         Task ActualizaItemsDocumentoConteo(Order order, string tipoDocumento);
+        Task EliminarDuplicadosDetalleDocumentoAsync(int idDocumento);
         Task ActualizaItemsDocumentoConteoSolicitud(OWTQ solicitud, string tipoDocumento);
         Task ActualizaItemsDocumentoConteoTransferenciaStock(OWTQ solicitud, string tipoDocumento);
         Task<int> InsertDocumentAsync(Documento documento);
